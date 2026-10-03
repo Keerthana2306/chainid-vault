@@ -14,6 +14,27 @@ Organizations need dependable ways to manage identities, permissions, and asset 
 - **DID signature login:** verify control of a wallet by signing a nonce-bearing challenge.
 - **Audit explorer:** inspect contract events, registered identities, and NFT timelines.
 
+## PS requirement mapping
+
+| PS requirement | How we meet it | Where |
+| --- | --- | --- |
+| Decentralized identifiers | Registration binds each wallet to a lowercase `did:ethr:<address>` DID stored in its Identity record. | `contracts/IdentityAssetRegistry.sol`: `registerIdentity`, `getIdentity`; test `makes the deployer the initial admin and registers an identity with its DID` |
+| NFT ownership | ERC-721 tokens have on-chain metadata and can be enumerated by owner; transfers are restricted to active registered identities with the User role. | `contracts/IdentityAssetRegistry.sol`: `mintAsset`, `getAsset`, `tokensOfOwner`, `_update`; tests `mints assets only by admin to active registered identities and stores metadata`, `allows transfers only between active registered identities` |
+| Admin-only minting to identities | `mintAsset` requires the Admin role and an active registered recipient. | `contracts/IdentityAssetRegistry.sol`: `mintAsset`, `_requireActiveIdentity`; test `mints assets only by admin to active registered identities and stores metadata` |
+| Smart-contract-enforced RBAC (4 roles) | Admin, Manager, Auditor, and User role hashes are checked by contract functions and transfer rules. | `contracts/IdentityAssetRegistry.sol`: `DEFAULT_ADMIN_ROLE`, `MANAGER_ROLE`, `AUDITOR_ROLE`, `USER_ROLE`, `assignRole`, `revokeRole`, `getRoles`; tests `allows a manager to register users but not assign additional roles`, `allows auditors to read registry data and audit events without write access`, `assigns and revokes roles with audit events and exposes them through getRoles` |
+| Immutable audit trail | State changes emit actor/timestamp events; deployed contract logs are read into the audit view. | `contracts/IdentityAssetRegistry.sol`: `IdentityRegistered`, `IdentityRevoked`, `RoleAssigned`, `RoleRevoked`, `AssetMinted`, `AssetTransferred`; tests `assigns and revokes roles with audit events and exposes them through getRoles`, `emits actor and timestamp audit events for ERC721 approval state changes` |
+| Cryptographic proof login | The app signs a nonce-bearing DID challenge and verifies the signature recovers the connected wallet. | `frontend/src/App.tsx`: `signInWithDid`, `verifyMessage`; no dedicated contract test (signature verification is frontend behavior) |
+| Tamper-proof history | The Audit Trail reads contract logs from block 0 and renders events with their block timestamps and transaction hashes. | `frontend/src/components/AuditTrail.tsx`: `contract.queryFilter`; `contracts/IdentityAssetRegistry.sol`: audit events; test `allows auditors to read registry data and audit events without write access` |
+
+## Security and design decisions
+
+- OpenZeppelin v5 `AccessControl` and `ERC721` provide the role and token base contracts.
+- Last-admin lockout protection prevents removal or renunciation of the final Admin.
+- Revoked identities are blocked from receiving NFTs, transferring NFTs, and performing role-restricted actions.
+- Registry state changes emit events, including identity, role, asset, transfer, and approval changes.
+- The app stores no private keys; signing and transactions are requested from MetaMask.
+- Role and identity permissions are enforced by the smart contract, not trusted to frontend visibility or role labels.
+
 ## Architecture
 
 ```mermaid
