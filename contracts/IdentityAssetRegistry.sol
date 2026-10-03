@@ -25,7 +25,6 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
     mapping(address => Identity) private _identities;
     mapping(uint256 => Asset) private _assets;
     uint256 private _nextTokenId = 1;
-    uint256 private _adminCount;
     uint256 private _activeAdminCount;
 
     error InvalidAddress();
@@ -71,6 +70,20 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
         uint256 indexed tokenId,
         address indexed from,
         address indexed to,
+        address actor,
+        uint256 timestamp
+    );
+    event AssetApprovalUpdated(
+        uint256 indexed tokenId,
+        address indexed owner,
+        address indexed approved,
+        address actor,
+        uint256 timestamp
+    );
+    event OperatorApprovalUpdated(
+        address indexed owner,
+        address indexed operator,
+        bool approved,
         address actor,
         uint256 timestamp
     );
@@ -153,7 +166,11 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
     ) public override onlyActiveRole(DEFAULT_ADMIN_ROLE) {
         _requireRegistered(account);
         _requireSupportedRole(role);
-        if (role == DEFAULT_ADMIN_ROLE && _adminCount <= 1) {
+        if (
+            role == DEFAULT_ADMIN_ROLE &&
+            _identities[account].active &&
+            _activeAdminCount <= 1
+        ) {
             revert LastAdminCannotBeRemoved();
         }
         if (_revokeRole(role, account)) {
@@ -165,7 +182,7 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
         if (callerConfirmation != msg.sender) revert AccessControlBadConfirmation();
         _requireActorNotRevoked();
         _requireSupportedRole(role);
-        if (role == DEFAULT_ADMIN_ROLE && _adminCount <= 1) {
+        if (role == DEFAULT_ADMIN_ROLE && _activeAdminCount <= 1) {
             revert LastAdminCannotBeRemoved();
         }
         if (_revokeRole(role, msg.sender)) {
@@ -234,13 +251,45 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
         address auth
     ) internal override returns (address from) {
         from = _ownerOf(tokenId);
-        if (from != address(0)) _requireActiveIdentity(from);
+        if (from != address(0)) {
+            _requireActiveIdentity(from);
+            _requireActiveIdentity(auth);
+            _checkRole(USER_ROLE, from);
+            _checkRole(USER_ROLE, auth);
+        }
         if (to != address(0)) _requireActiveIdentity(to);
 
         from = super._update(to, tokenId, auth);
         if (from != address(0) && to != address(0)) {
             emit AssetTransferred(tokenId, from, to, msg.sender, block.timestamp);
         }
+    }
+
+    function _approve(
+        address to,
+        uint256 tokenId,
+        address auth,
+        bool emitEvent
+    ) internal override {
+        super._approve(to, tokenId, auth, emitEvent);
+        if (emitEvent) {
+            emit AssetApprovalUpdated(
+                tokenId,
+                ownerOf(tokenId),
+                to,
+                auth,
+                block.timestamp
+            );
+        }
+    }
+
+    function _setApprovalForAll(
+        address owner,
+        address operator,
+        bool approved
+    ) internal override {
+        super._setApprovalForAll(owner, operator, approved);
+        emit OperatorApprovalUpdated(owner, operator, approved, owner, block.timestamp);
     }
 
     function _assignRole(address account, bytes32 role, address actor) private {
@@ -285,7 +334,6 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
     function _grantRole(bytes32 role, address account) internal override returns (bool) {
         bool granted = super._grantRole(role, account);
         if (granted && role == DEFAULT_ADMIN_ROLE) {
-            _adminCount += 1;
             if (bytes(_identities[account].did).length == 0 || _identities[account].active) {
                 _activeAdminCount += 1;
             }
@@ -296,7 +344,6 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
     function _revokeRole(bytes32 role, address account) internal override returns (bool) {
         bool revoked = super._revokeRole(role, account);
         if (revoked && role == DEFAULT_ADMIN_ROLE) {
-            _adminCount -= 1;
             if (bytes(_identities[account].did).length == 0 || _identities[account].active) {
                 _activeAdminCount -= 1;
             }
