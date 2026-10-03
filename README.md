@@ -1,4 +1,6 @@
-# SIH26125 — Identity & Asset Registry
+# ChainID Vault
+
+Blockchain platform for decentralized identity, role-based access control and NFT asset ownership with a tamper-proof audit trail. Built for Smart India Hackathon 2026, problem statement SIH26125 (Bharat Electronics Limited).
 
 Organizations need dependable ways to manage identities, permissions, and asset ownership without relying on disconnected records. This project demonstrates a blockchain-based registry where identity and asset changes can be verified on-chain.
 
