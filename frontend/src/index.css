@@ -1,7 +1,7 @@
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #273449;
-  background: #f5f7fb;
+  color: var(--ink);
+  background: var(--page-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -9,14 +9,32 @@
   font-optical-sizing: auto;
   font-weight: 400;
 
-  --ink: #202d40;
-  --ink-soft: #435166;
-  --muted: #758195;
-  --line: #e5e9f0;
+  --navy: #101f38;
+  --navy-raised: #1b3151;
+  --page-bg: #f1f3f6;
+  --ink: #17243a;
+  --ink-soft: #34435a;
+  --muted: #58677c;
+  --line: #cbd3df;
   --surface: #fff;
-  --blue: #4168d5;
-  --blue-dark: #3158c4;
-  --blue-wash: #edf2ff;
+  --blue: #2853bd;
+  --blue-dark: #1d429f;
+  --blue-wash: #e7edfb;
+  --purple-deep: #593483;
+  --purple-wash: #f0eafa;
+  --role-blue: #174c91;
+  --role-blue-wash: #e9f1fb;
+  --amber-deep: #744500;
+  --amber-wash: #fff2d6;
+  --green-deep: #12633f;
+  --green-wash: #e5f5ec;
+  --red-deep: #8b252d;
+  --red-wash: #fbeaec;
+  --success: #12633f;
+  --warning: #744500;
+  --danger: #8b252d;
+  --focus: #f0b429;
+  --row-alt: #f2f5f9;
   --mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", Consolas, monospace;
   --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -41,6 +59,6 @@ button {
 }
 
 ::selection {
-  color: #243d7e;
+  color: var(--navy);
   background: #dce6ff;
 }

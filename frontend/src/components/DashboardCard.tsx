@@ -16,8 +16,20 @@ interface AssetView {
   createdAt: string | null
 }
 
-export function RoleBadge({ role }: { role: RoleName }) {
-  return <span className={`role-badge role-${role.toLowerCase()}`}>{role}</span>
+const roleDescriptions: Record<RoleName, string> = {
+  Admin: 'Security Administrator',
+  Manager: 'Unit Manager',
+  Auditor: 'Quality & Vigilance Auditor',
+  User: 'Engineer / Vendor',
+}
+
+export function RoleBadge({ role, showDescription = false }: { role: RoleName; showDescription?: boolean }) {
+  return (
+    <span className={`role-badge role-${role.toLowerCase()}`}>
+      {role}
+      {showDescription && <span className="role-description">{roleDescriptions[role]}</span>}
+    </span>
+  )
 }
 
 export function DashboardCard({

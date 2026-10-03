@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { BrowserProvider, type Eip1193Provider, type JsonRpcSigner } from 'ethers'
-import { chainId as deployedChainId, contractAddress } from '../lib/contract'
+import { chainId as deployedChainId, contractAddress, labelFor } from '../lib/contract'
 
 interface InjectedProvider extends Eip1193Provider {
   on(event: 'accountsChanged', listener: (accounts: string[]) => void): void
@@ -24,11 +24,13 @@ function errorMessage(error: unknown): string {
 }
 
 export function useWallet() {
-  const [account, setAccount] = useState<string | null>(null)
+  const [activeAccount, setActiveAccount] = useState<string | null>(null)
+  const [permittedAccounts, setPermittedAccounts] = useState<string[]>([])
   const [signer, setSigner] = useState<JsonRpcSigner | null>(null)
   const [provider, setProvider] = useState<BrowserProvider | null>(null)
   const [chainId, setChainId] = useState<bigint | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [accountSelectionMessage, setAccountSelectionMessage] = useState<string | null>(null)
   const [walletRevision, setWalletRevision] = useState(0)
   const [deploymentCheck, setDeploymentCheck] = useState<{
     provider: BrowserProvider
@@ -45,23 +47,141 @@ export function useWallet() {
 
     setError(null)
     try {
-      const accounts = await injected.request({ method: 'eth_requestAccounts' })
+      await injected.request({
+        method: 'wallet_requestPermissions',
+        params: [{ eth_accounts: {} }],
+      })
+      const accounts = await injected.request({ method: 'eth_accounts' })
       if (!Array.isArray(accounts) || accounts.length === 0) {
         throw new Error('No wallet account was returned.')
       }
+      const permitted = accounts.map(String)
       const browserProvider = new BrowserProvider(injected)
-      const selectedAccount = String(accounts[0])
+      const selectedAccount = permitted[0]
       const [network, walletSigner] = await Promise.all([
         browserProvider.getNetwork(),
         browserProvider.getSigner(selectedAccount),
       ])
-      setAccount(selectedAccount)
+      setPermittedAccounts(permitted)
+      setActiveAccount(selectedAccount)
+      setAccountSelectionMessage(null)
       setSigner(walletSigner)
       setProvider(browserProvider)
       setChainId(network.chainId)
       setWalletRevision((revision) => revision + 1)
     } catch (connectError) {
       setError(errorMessage(connectError))
+    }
+  }, [])
+
+  const connectMoreAccounts = useCallback(async () => {
+    const injected = window.ethereum
+    if (!injected) {
+      setError('MetaMask is not installed. Install MetaMask to connect a demo account.')
+      return
+    }
+
+    setError(null)
+    try {
+      await injected.request({
+        method: 'wallet_requestPermissions',
+        params: [{ eth_accounts: {} }],
+      })
+      const accounts = await injected.request({ method: 'eth_accounts' })
+      if (!Array.isArray(accounts) || accounts.length === 0) {
+        throw new Error('No wallet account was permitted.')
+      }
+
+      const permitted = accounts.map(String)
+      const browserProvider = new BrowserProvider(injected)
+      const selectedAccount = permitted.find(
+        (permittedAccount) => permittedAccount.toLowerCase() === activeAccount?.toLowerCase(),
+      ) ?? permitted[0]
+      const [network, walletSigner] = await Promise.all([
+        browserProvider.getNetwork(),
+        browserProvider.getSigner(selectedAccount),
+      ])
+      setPermittedAccounts(permitted)
+      setActiveAccount(selectedAccount)
+      setAccountSelectionMessage(null)
+      setSigner(walletSigner)
+      setProvider(browserProvider)
+      setChainId(network.chainId)
+      setWalletRevision((revision) => revision + 1)
+    } catch (permissionError) {
+      setError(errorMessage(permissionError))
+    }
+  }, [activeAccount])
+
+  const requestAccountFallback = useCallback(async (accountLabel: string) => {
+    const injected = window.ethereum
+    if (!injected) {
+      setError('MetaMask is not installed. Install MetaMask to connect a demo account.')
+      return
+    }
+
+    setAccountSelectionMessage(`Select ${accountLabel} in MetaMask, then click Refresh`)
+    try {
+      await injected.request({
+        method: 'wallet_requestPermissions',
+        params: [{ eth_accounts: {} }],
+      })
+    } catch (permissionError) {
+      setError(errorMessage(permissionError))
+    }
+  }, [])
+
+  const selectAccount = useCallback(async (selectedAccount: string) => {
+    if (!provider || !permittedAccounts.some(
+      (permitted) => permitted.toLowerCase() === selectedAccount.toLowerCase(),
+    )) {
+      setError('That account is not connected in MetaMask. Connect more accounts to use it.')
+      return
+    }
+
+    setError(null)
+    try {
+      const walletSigner = await provider.getSigner(selectedAccount)
+      setActiveAccount(selectedAccount)
+      setAccountSelectionMessage(null)
+      setSigner(walletSigner)
+      setWalletRevision((revision) => revision + 1)
+    } catch (signerError) {
+      if (isAccountSelectionRejection(signerError)) {
+        await requestAccountFallback(labelFor(selectedAccount))
+      } else {
+        setError(errorMessage(signerError))
+      }
+    }
+  }, [permittedAccounts, provider, requestAccountFallback])
+
+  const refreshSelectedAccount = useCallback(async () => {
+    const injected = window.ethereum
+    if (!injected) return
+
+    try {
+      const accounts = await injected.request({ method: 'eth_accounts' })
+      if (!Array.isArray(accounts) || accounts.length === 0) {
+        throw new Error('No wallet account was returned.')
+      }
+
+      const permitted = accounts.map(String)
+      const browserProvider = new BrowserProvider(injected)
+      const selectedAccount = permitted[0]
+      const [network, walletSigner] = await Promise.all([
+        browserProvider.getNetwork(),
+        browserProvider.getSigner(selectedAccount),
+      ])
+      setPermittedAccounts(permitted)
+      setActiveAccount(selectedAccount)
+      setSigner(walletSigner)
+      setProvider(browserProvider)
+      setChainId(network.chainId)
+      setWalletRevision((revision) => revision + 1)
+      setError(null)
+      setAccountSelectionMessage(null)
+    } catch (refreshError) {
+      setError(errorMessage(refreshError))
     }
   }, [])
 
@@ -111,8 +231,11 @@ export function useWallet() {
     if (!injected) return
 
     const onAccountsChanged = (accounts: string[]) => {
+      const permitted = accounts.map(String)
+      setPermittedAccounts(permitted)
       if (accounts.length === 0) {
-        setAccount(null)
+        setActiveAccount(null)
+        setAccountSelectionMessage(null)
         setSigner(null)
         setProvider(null)
         setChainId(null)
@@ -120,8 +243,12 @@ export function useWallet() {
       }
 
       const browserProvider = new BrowserProvider(injected)
-      const nextAccount = accounts[0]
-      setAccount(nextAccount)
+      const currentIsPermitted = permitted.some(
+        (permittedAccount) => permittedAccount.toLowerCase() === activeAccount?.toLowerCase(),
+      )
+      const nextAccount = currentIsPermitted ? activeAccount as string : permitted[0]
+      setActiveAccount(nextAccount)
+      setAccountSelectionMessage(null)
       setProvider(browserProvider)
       setWalletRevision((revision) => revision + 1)
       void Promise.all([
@@ -139,9 +266,10 @@ export function useWallet() {
       const browserProvider = new BrowserProvider(injected)
       setProvider(browserProvider)
       setChainId(BigInt(newChainId))
+      setAccountSelectionMessage(null)
       setWalletRevision((revision) => revision + 1)
-      if (account) {
-        void browserProvider.getSigner(account).then(setSigner).catch((eventError: unknown) => {
+      if (activeAccount) {
+        void browserProvider.getSigner(activeAccount).then(setSigner).catch((eventError: unknown) => {
           setError(errorMessage(eventError))
         })
       } else {
@@ -155,7 +283,7 @@ export function useWallet() {
       injected.removeListener('accountsChanged', onAccountsChanged)
       injected.removeListener('chainChanged', onChainChanged)
     }
-  }, [account])
+  }, [activeAccount])
 
   useEffect(() => {
     if (!provider || chainId !== BigInt(deployedChainId)) {
@@ -187,14 +315,28 @@ export function useWallet() {
       : null
 
   return {
-    account,
+    account: activeAccount,
+    activeAccount,
     signer,
     provider,
     chainId,
     error,
+    accountSelectionMessage,
     walletRevision,
+    permittedAccounts,
     contractDeployed,
     connect,
+    connectMoreAccounts,
+    selectAccount,
+    requestAccountFallback,
+    refreshSelectedAccount,
     switchNetwork,
   }
+}
+
+function isAccountSelectionRejection(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false
+  const details = error as { code?: string | number; message?: string; shortMessage?: string }
+  const message = `${details.message ?? ''} ${details.shortMessage ?? ''}`.toLowerCase()
+  return details.code === 4100 || /account.*(not selected|not authorized|unauthorized|not permitted)/.test(message)
 }

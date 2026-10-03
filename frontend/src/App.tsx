@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { BrowserProvider } from 'ethers'
 import { verifyMessage } from 'ethers'
-import { didFor, getContract, labelFor, roleName, type RoleName } from './lib/contract'
+import { accounts, didFor, getContract, labelFor, roleName, type RoleName } from './lib/contract'
 import { useWallet } from './hooks/useWallet'
 import { AssetCard, DashboardCard, RoleBadge } from './components/DashboardCard'
 import { RegistryActions } from './components/RegistryActions'
@@ -44,6 +44,14 @@ function formatTimestamp(value: bigint | number): string | null {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(milliseconds))
+}
+
+const demoRoles: Record<string, RoleName> = {
+  Admin: 'Admin',
+  Manager: 'Manager',
+  Auditor: 'Auditor',
+  Alice: 'User',
+  Bob: 'User',
 }
 
 function App() {
@@ -200,6 +208,12 @@ function App() {
       const details = typeof error === 'object' && error !== null
         ? error as { code?: string | number; shortMessage?: string }
         : {}
+      if (
+        details.code === 4100 ||
+        (error instanceof Error && /account.*(not selected|not authorized|unauthorized|not permitted)/i.test(error.message))
+      ) {
+        await wallet.requestAccountFallback(labelFor(wallet.account))
+      }
       setSignInError(
         details.code === 'ACTION_REJECTED' || details.code === 4001
           ? 'Sign-in cancelled'
@@ -245,7 +259,7 @@ function App() {
           {wallet.account ? (
             <div className="header-roles" aria-label="Account roles">
               {roles.map((role) => (
-                <RoleBadge key={role} role={role} />
+                <RoleBadge key={role} role={role} showDescription />
               ))}
             </div>
           ) : (
@@ -267,6 +281,52 @@ function App() {
           )}
         </div>
       </header>
+
+      {wallet.account && (
+        <section className="acting-bar" aria-label="Choose active demo account">
+          <div className="acting-title">
+            <strong>Acting as</strong>
+            <span>Choose a permitted demo account</span>
+          </div>
+          <div className="acting-account-list">
+            {accounts.map((demoAccount) => {
+              const permitted = wallet.permittedAccounts.some(
+                (address) => address.toLowerCase() === demoAccount.address.toLowerCase(),
+              )
+              const active = wallet.account?.toLowerCase() === demoAccount.address.toLowerCase()
+              return (
+                <button
+                  aria-pressed={active}
+                  className={`acting-account ${active ? 'is-active' : ''}`}
+                  disabled={!permitted}
+                  key={demoAccount.address}
+                  onClick={() => void wallet.selectAccount(demoAccount.address)}
+                  title={permitted ? `${demoAccount.label} · ${demoAccount.address}` : 'Not connected in MetaMask'}
+                >
+                  <span className="acting-account-copy">
+                    <strong>{demoAccount.label}</strong>
+                    <span>{`${demoAccount.address.slice(0, 6)}...${demoAccount.address.slice(-4)}`}</span>
+                  </span>
+                  <RoleBadge role={demoRoles[demoAccount.label]} />
+                </button>
+              )
+            })}
+          </div>
+          <button
+            className="button button-small button-quiet connect-more-button"
+            onClick={() => void (wallet.accountSelectionMessage
+              ? wallet.refreshSelectedAccount()
+              : wallet.connectMoreAccounts())}
+          >
+            {wallet.accountSelectionMessage ? 'Refresh' : 'Connect more accounts'}
+          </button>
+        </section>
+      )}
+      {wallet.accountSelectionMessage && (
+        <div className="notice notice-warning account-selection-notice" role="status">
+          {wallet.accountSelectionMessage}
+        </div>
+      )}
 
       <section className="page-heading">
         <div>
@@ -386,7 +446,7 @@ function App() {
                     <div className="role-row" key={role}>
                       <span className="role-name">{role}</span>
                       {roles.includes(role) ? (
-                        <RoleBadge role={role} />
+                        <RoleBadge role={role} showDescription />
                       ) : (
                         <span className="role-not-assigned">Not assigned</span>
                       )}
@@ -455,6 +515,8 @@ function App() {
           provider={wallet.provider}
           signer={wallet.signer}
           verified={verified}
+          refreshSignal={wallet.walletRevision}
+          requestAccountFallback={wallet.requestAccountFallback}
         />
       )}
 

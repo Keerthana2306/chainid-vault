@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { isAddress, type BrowserProvider, type ContractTransactionResponse, type JsonRpcSigner } from 'ethers'
-import { accounts, didFor, friendlyContractError, getContract, roleHashes } from '../lib/contract'
+import { accounts, didFor, friendlyContractError, getContract, labelFor, roleHashes } from '../lib/contract'
 import { AuditTrail } from './AuditTrail'
 
 interface OwnedAsset {
@@ -14,6 +14,8 @@ interface RegistryActionsProps {
   signer: JsonRpcSigner | null
   verified: boolean
   assets: OwnedAsset[]
+  refreshSignal: number
+  requestAccountFallback: (label: string) => Promise<void>
   onSuccess: () => Promise<void>
 }
 
@@ -94,6 +96,8 @@ export function RegistryActions({
   signer,
   verified,
   assets,
+  refreshSignal,
+  requestAccountFallback,
   onSuccess,
 }: RegistryActionsProps) {
   const [panel, setPanel] = useState<Panel>('identity')
@@ -147,6 +151,9 @@ export function RegistryActions({
       await onSuccess()
       setAuditRefreshSignal((signal) => signal + 1)
     } catch (error) {
+      if (isAccountSelectionRejection(error)) {
+        void requestAccountFallback(labelFor(account))
+      }
       const friendlyMessage = friendlyContractError(
         error as ContractError,
         signer ? getContract(signer) : null,
@@ -309,7 +316,7 @@ export function RegistryActions({
         )}
 
         {panel === 'audit' && (
-          <AuditTrail provider={provider} refreshSignal={auditRefreshSignal} />
+          <AuditTrail provider={provider} refreshSignal={refreshSignal + auditRefreshSignal} />
         )}
 
         {panel === 'roles' && (
@@ -376,11 +383,11 @@ export function RegistryActions({
 
         {panel === 'assets' && (
           <div className="action-grid">
-            <ActionPanel title="Mint NFT" requirement="Admin" verified={verified}>
+            <ActionPanel title="Issue asset record (NFT)" requirement="Admin" verified={verified}>
               <form onSubmit={(event) => submitAddress(
                 event,
                 mintAddress,
-                'Mint NFT',
+                'Issue asset record (NFT)',
                 (contract, address) => contract.mintAsset(address, mintName, mintDescription),
               )}>
                 <label className="form-field">
@@ -407,16 +414,16 @@ export function RegistryActions({
                   />
                 </label>
                 <button className="button button-primary" disabled={pending !== null} type="submit">
-                  {pending === 'Mint NFT' ? pendingLabel(activity) : 'Mint NFT'}
+                  {pending === 'Issue asset record (NFT)' ? pendingLabel(activity) : 'Issue asset record (NFT)'}
                 </button>
               </form>
             </ActionPanel>
 
-            <ActionPanel title="Transfer NFT" requirement="NFT owner (User role)" verified={verified}>
+            <ActionPanel title="Hand over custody (NFT transfer)" requirement="NFT owner (User role)" verified={verified}>
               <form onSubmit={(event) => submitAddress(
                 event,
                 transferAddress,
-                'Transfer NFT',
+                'Hand over custody (NFT transfer)',
                 (contract, address) => {
                   const tokenId = transferTokenId || assets[0]?.tokenId
                   if (!tokenId) {
@@ -452,7 +459,7 @@ export function RegistryActions({
                 </label>
                 <DemoAccountButtons label="Quick fill demo account" onSelect={setTransferAddress} />
                 <button className="button button-primary" disabled={pending !== null} type="submit">
-                  {pending === 'Transfer NFT' ? pendingLabel(activity) : 'Transfer NFT'}
+                  {pending === 'Hand over custody (NFT transfer)' ? pendingLabel(activity) : 'Hand over custody (NFT transfer)'}
                 </button>
               </form>
             </ActionPanel>
@@ -470,4 +477,11 @@ function pendingLabel(activity: ActivityEntry[]): string {
   return latest?.status === 'pending' && latest.message === 'Confirming...'
     ? 'Confirming...'
     : 'Waiting for MetaMask...'
+}
+
+function isAccountSelectionRejection(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false
+  const details = error as { code?: string | number; message?: string; shortMessage?: string }
+  const message = `${details.message ?? ''} ${details.shortMessage ?? ''}`.toLowerCase()
+  return details.code === 4100 || /account.*(not selected|not authorized|unauthorized|not permitted)/.test(message)
 }

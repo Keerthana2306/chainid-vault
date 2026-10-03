@@ -320,6 +320,13 @@ h1 {
   white-space: nowrap;
 }
 
+.role-description {
+  padding-left: 2px;
+  font-size: 9px;
+  font-weight: 500;
+  opacity: .82;
+}
+
 .role-badge::before {
   width: 5px;
   height: 5px;
@@ -1390,5 +1397,507 @@ h1 {
 
   .page-footer {
     flex-direction: column;
+  }
+}
+
+/* High-contrast palette and interaction states */
+.topbar {
+  position: relative;
+  width: 100%;
+  margin-left: 0;
+  padding-inline: 16px;
+  border-bottom: 1px solid var(--navy-raised);
+  color: #fff;
+  background: var(--navy);
+}
+
+.brand,
+.account-copy strong,
+.account-copy,
+.wallet-disconnected {
+  color: #fff;
+}
+
+.brand-mark,
+.account-avatar {
+  color: var(--navy);
+  background: #fff;
+}
+
+.brand-mark svg {
+  stroke: var(--navy);
+}
+
+.account-copy span {
+  color: #d9e2ef;
+}
+
+.verified-did {
+  color: #d9e2ef;
+}
+
+.acting-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin-inline: 0;
+  padding: 12px 16px;
+  color: #fff;
+  background: var(--navy-raised);
+}
+
+.acting-title {
+  display: grid;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.acting-title strong {
+  font-size: 12px;
+}
+
+.acting-title span {
+  color: #d2dceb;
+  font-size: 10px;
+}
+
+.acting-account-list {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 4px;
+}
+
+.acting-account {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #64758d;
+  border-radius: 8px;
+  padding: 7px 9px;
+  color: #fff;
+  background: #223958;
+  text-align: left;
+}
+
+.acting-account:not(:disabled) {
+  cursor: pointer;
+}
+
+.acting-account.is-active {
+  border-color: #ffd166;
+  box-shadow: 0 0 0 3px #ffd166;
+  background: #314b70;
+}
+
+.acting-account:disabled {
+  border-style: dashed;
+  color: #d9e2ef;
+  background: #1b2b42;
+  cursor: not-allowed;
+}
+
+.acting-account:disabled .acting-account-copy > span {
+  color: #d9e2ef;
+}
+
+.acting-account-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.acting-account-copy strong {
+  font-size: 11px;
+}
+
+.acting-account-copy > span {
+  color: #e0e7f0;
+  font: 9px var(--mono);
+}
+
+.acting-account .role-badge {
+  border-color: currentColor;
+}
+
+.connect-more-button {
+  border-color: #a8b8cd;
+  color: #fff;
+  background: transparent;
+  white-space: nowrap;
+}
+
+.connect-more-button:hover {
+  color: #fff;
+  background: #344c6b;
+}
+
+.page-heading h1,
+.section-heading h2,
+.card-heading h2,
+.welcome-card h2,
+.asset-card h3,
+.activity-heading h2,
+.audit-heading h2,
+.audit-subheading h3,
+.action-panel-heading h3,
+.page-footer {
+  color: var(--ink);
+}
+
+.eyebrow,
+.field-label,
+.count-label,
+.role-not-assigned,
+.asset-created,
+.audit-table th,
+.activity-meta time,
+.timeline-item time,
+.form-hint {
+  color: var(--muted);
+}
+
+.heading-subtitle,
+.identity-details strong,
+.role-name,
+.asset-description,
+.welcome-card p,
+.audit-heading p:not(.eyebrow),
+.activity-copy span,
+.activity-empty,
+.requirement-label,
+.form-hint,
+.empty-identity > span,
+.token-label,
+.verified-did,
+.audit-empty {
+  color: var(--ink-soft);
+}
+
+.network-indicator,
+.dashboard-card,
+.asset-card,
+.action-panel,
+.activity-panel,
+.identity-directory,
+.timeline-panel,
+.event-history,
+.welcome-card {
+  border-color: var(--line);
+  box-shadow: 0 3px 10px #101f3812;
+}
+
+.button-primary {
+  color: #fff;
+  background: var(--blue);
+}
+
+.button-primary:hover {
+  color: #fff;
+  background: var(--blue-dark);
+}
+
+.button:focus-visible,
+.action-tab:focus-visible,
+.acting-account:focus-visible,
+.quick-fill-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.button:disabled,
+.button:disabled:hover {
+  color: #e4e8ef;
+  background: #68778d;
+  opacity: 1;
+}
+
+.role-admin {
+  color: var(--purple-deep);
+  border-color: #cbb7e2;
+  background: var(--purple-wash);
+}
+
+.role-manager {
+  color: var(--role-blue);
+  border-color: #b8cce7;
+  background: var(--role-blue-wash);
+}
+
+.role-auditor {
+  color: var(--amber-deep);
+  border-color: #e7ca8d;
+  background: var(--amber-wash);
+}
+
+.role-user {
+  color: var(--green-deep);
+  border-color: #a9d4bd;
+  background: var(--green-wash);
+}
+
+.role-description {
+  color: inherit;
+}
+
+.status-active {
+  color: var(--green-deep);
+  background: var(--green-wash);
+}
+
+.status-revoked {
+  color: var(--red-deep);
+  background: var(--red-wash);
+}
+
+.status-muted {
+  color: #46546a;
+  background: #e8ecf2;
+}
+
+.notice {
+  border-left-width: 5px;
+  font-weight: 650;
+}
+
+.notice-error {
+  color: var(--red-deep);
+  border-color: #e6afb4;
+  border-left-color: var(--red-deep);
+  background: var(--red-wash);
+}
+
+.notice-warning {
+  color: var(--warning);
+  border-color: #e7ca8d;
+  border-left-color: var(--warning);
+  background: var(--amber-wash);
+}
+
+.button-danger {
+  color: #fff;
+  background: var(--red-deep);
+}
+
+.button-danger:hover {
+  color: #fff;
+  background: #671a21;
+}
+
+.signin-hint {
+  color: var(--warning);
+  font-weight: 700;
+}
+
+.action-controls:disabled {
+  opacity: 1;
+}
+
+.action-controls:disabled .form-field input,
+.action-controls:disabled .form-field select,
+.action-controls:disabled .form-field textarea {
+  border-color: #aeb9c9;
+  color: #46546a;
+  background: #e7ebf1;
+}
+
+.action-controls:disabled .form-field,
+.action-controls:disabled .quick-fill legend {
+  color: #445168;
+}
+
+.action-tab {
+  border-radius: 5px 5px 0 0;
+  color: #fff;
+}
+
+.action-tab.is-selected {
+  border-bottom: 4px solid var(--blue);
+  color: var(--navy);
+  background: #fff;
+}
+
+.action-tab:hover {
+  color: #fff;
+}
+
+.action-tab.is-selected:hover {
+  color: var(--navy);
+}
+
+.action-tabs {
+  border-bottom: 2px solid #aeb9c9;
+  border-radius: 8px 8px 0 0;
+  background: var(--navy);
+}
+
+.event-chip {
+  display: inline-block;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 4px 6px;
+  font: 700 9px var(--mono);
+  white-space: nowrap;
+}
+
+.event-identity {
+  color: #174c91;
+  border-color: #b8cce7;
+  background: #e9f1fb;
+}
+
+.event-role {
+  color: #593483;
+  border-color: #cbb7e2;
+  background: #f0eafa;
+}
+
+.event-asset-mint {
+  color: #12633f;
+  border-color: #a9d4bd;
+  background: #e5f5ec;
+}
+
+.event-asset-transfer {
+  color: #174c91;
+  border-color: #b8cce7;
+  background: #e9f1fb;
+}
+
+.event-revoke {
+  color: #8b252d;
+  border-color: #e6afb4;
+  background: #fbeaec;
+}
+
+.event-event {
+  color: #34435a;
+  border-color: #cbd3df;
+  background: #edf0f4;
+}
+
+.audit-table tbody tr:nth-child(even) {
+  background: var(--row-alt);
+}
+
+.audit-table tbody tr:hover {
+  background: #e8eef8;
+}
+
+.audit-table td,
+.audit-table th {
+  color: var(--ink-soft);
+}
+
+.audit-table th {
+  color: #3e4d62;
+}
+
+.audit-table code {
+  color: #34435a;
+}
+
+.activity-success {
+  color: var(--green-deep);
+  background: var(--green-wash);
+}
+
+.activity-failed {
+  color: var(--red-deep);
+  background: var(--red-wash);
+}
+
+.activity-pending {
+  color: var(--amber-deep);
+  background: var(--amber-wash);
+}
+
+.empty-symbol {
+  color: var(--muted);
+}
+
+.form-field,
+.quick-fill legend,
+.timeline-select,
+.current-owner span {
+  color: var(--ink-soft);
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea,
+.timeline-select select {
+  border-color: #9aa8bb;
+  color: var(--ink);
+  background: #fff;
+}
+
+.form-field input::placeholder,
+.form-field textarea::placeholder {
+  color: #58677c;
+}
+
+.quick-fill-button,
+.button-quiet {
+  border-color: #aab5c5;
+  color: #34435a;
+  background: #fff;
+}
+
+.quick-fill-button:hover,
+.button-quiet:hover {
+  color: var(--navy);
+  background: #e9eef6;
+}
+
+@media (max-width: 900px) {
+  .acting-bar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .acting-account-list {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    order: 2;
+  }
+
+  .acting-title {
+    grid-column: 1;
+  }
+
+  .connect-more-button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar {
+    padding-inline: 12px;
+  }
+
+  .acting-bar {
+    gap: 9px;
+    padding-inline: 12px;
+  }
+
+  .acting-account-list {
+    margin-inline: -2px;
+  }
+
+  .acting-account {
+    padding: 6px 7px;
+  }
+
+  .acting-account .role-badge {
+    display: none;
+  }
+
+  .acting-title span {
+    max-width: 155px;
+    white-space: normal;
   }
 }

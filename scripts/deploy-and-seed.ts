@@ -43,20 +43,24 @@ await registerIdentity(alice);
 await registerIdentity(bob);
 
 await (
-  await registry.mintAsset(alice.address, "Land Deed #1", "Demo deed for a registered property")
+  await registry.mintAsset(
+    alice.address,
+    "Radar Module RM-2041 Test Certificate",
+    "Factory acceptance test record for a radar subsystem batch (demo data)",
+  )
 ).wait();
 await (
   await registry.mintAsset(
     alice.address,
-    "Company Share Certificate",
-    "Demo certificate representing company shares",
+    "Test Equipment Calibration Certificate",
+    "Calibration record for precision test equipment (demo data)",
   )
 ).wait();
 await (
   await registry.mintAsset(
     bob.address,
-    "Equipment Warranty",
-    "Demo warranty for registered equipment",
+    "Approved Vendor Qualification",
+    "Qualification certificate for an approved component supplier (demo data)",
   )
 ).wait();
 
@@ -118,5 +122,5 @@ console.log(`  Manager ${manager.address} (MANAGER_ROLE)`);
 console.log(`  Auditor ${auditor.address} (AUDITOR_ROLE)`);
 console.log(`  Alice   ${alice.address} (USER_ROLE)`);
 console.log(`  Bob     ${bob.address} (USER_ROLE)`);
-console.log("Seed assets: 3 minted; Alice transferred Land Deed #1 to Bob");
+console.log("Seed assets: 3 minted; Alice transferred Radar Module RM-2041 Test Certificate to Bob");
 console.log("Deployment details: deployments/localhost.json\n");

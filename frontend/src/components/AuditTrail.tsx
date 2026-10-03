@@ -169,6 +169,17 @@ function shortHash(hash: string): string {
   return `${hash.slice(0, 8)}...${hash.slice(-6)}`
 }
 
+function eventCategory(name: string, args: Result): string {
+  if (name === 'IdentityRevoked') return 'revoke'
+  if (name === 'IdentityRegistered') return 'identity'
+  if (name === 'RoleRevoked') return 'revoke'
+  if (name === 'RoleAssigned' || name === 'RoleGranted' || name === 'RoleAdminChanged') return 'role'
+  if (name === 'AssetMinted') return 'asset-mint'
+  if (name === 'AssetTransferred') return 'asset-transfer'
+  if (name === 'Transfer') return args.from === ZeroAddress ? 'asset-mint' : 'asset-transfer'
+  return 'event'
+}
+
 export function AuditTrail({ provider, refreshSignal }: AuditTrailProps) {
   const [entries, setEntries] = useState<AuditEntry[]>([])
   const [identities, setIdentities] = useState<IdentityEntry[]>([])
@@ -472,7 +483,11 @@ export function AuditTrail({ provider, refreshSignal }: AuditTrailProps) {
               {visibleEntries.map((entry) => (
                 <tr key={`${entry.transactionHash}-${entry.logIndex}`}>
                   <td>{formatTime(entry.timestamp)}</td>
-                  <td><span className="event-name">{entry.name}</span></td>
+                  <td>
+                    <span className={`event-chip event-${eventCategory(entry.name, entry.args)}`}>
+                      {entry.name}
+                    </span>
+                  </td>
                   <td>{displayAddress(entry.actor)}</td>
                   <td>{entry.tokenId
                     ? `Token #${entry.tokenId}`

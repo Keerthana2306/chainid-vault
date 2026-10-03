@@ -97,14 +97,41 @@ Addresses are read from [`deployments/localhost.json`](./deployments/localhost.j
 | Alice (#3) | `0x90F79bf6EB2c4f870365E785982E1f101E93b906` | User |
 | Bob (#4) | `0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65` | User |
 
+### Seeded demo assets
+
+All demo records below are fictional and are provided as demo data only:
+
+| Token ID | Asset record | Description | Seeded custody |
+| --- | --- | --- | --- |
+| #1 | Radar Module RM-2041 Test Certificate | Factory acceptance test record for a radar subsystem batch (demo data) | Minted to Alice, then transferred to Bob |
+| #2 | Test Equipment Calibration Certificate | Calibration record for precision test equipment (demo data) | Alice |
+| #3 | Approved Vendor Qualification | Qualification certificate for an approved component supplier (demo data) | Bob |
+
 ### What each role can do
 
-| Role | Capabilities |
-| --- | --- |
-| Admin | Register and revoke identities; assign and revoke roles; mint NFTs to active registered identities; read registry data. The last Admin cannot be removed. |
-| Manager | Register identities; read registry data. Does not receive Admin write permissions. |
-| Auditor | Read registry data and the audit trail; no write permissions. |
-| User | Hold NFTs and transfer owned NFTs to active registered identities. |
+| Role | Dashboard description | Capabilities |
+| --- | --- | --- |
+| Admin | Security Administrator | Register and revoke identities; assign and revoke roles; mint NFTs to active registered identities; read registry data. The last Admin cannot be removed. |
+| Manager | Unit Manager | Register identities; read registry data. Does not receive Admin write permissions. |
+| Auditor | Quality & Vigilance Auditor | Read registry data and the audit trail; no write permissions. |
+| User | Engineer / Vendor | Hold NFTs and transfer owned NFTs to active registered identities. |
+
+## Use case: Bharat Electronics Limited (BEL)
+
+- **Component provenance:** preserve component batch provenance alongside the Radar Module RM-2041 factory acceptance test certificate.
+- **Calibration records:** issue traceable calibration records for precision test equipment.
+- **Vendor qualification:** associate approved component suppliers with on-chain qualification certificate records.
+- **Role-based access and audit:** restrict registry operations by role while giving auditors a tamper-proof trail of identity, role, and asset events.
+
+All demo accounts, names, and asset records in this prototype are fictional. They do not represent actual BEL people, equipment, suppliers, or records.
+
+## Production roadmap (not implemented in this prototype)
+
+- Deploy to a permissioned or private network.
+- Store documents off-chain and put only their cryptographic hashes on-chain.
+- Integrate enterprise SSO and enterprise DID systems.
+- Add secure key management and hardware-backed signing.
+- Mainnet-style gas is not required for the local prototype.
 
 ## Known limitations
 
