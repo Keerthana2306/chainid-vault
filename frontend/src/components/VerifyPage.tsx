@@ -212,14 +212,14 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
   return (
     <main className="app-shell verify-page">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Identity & Asset Registry home">
+        <a className="brand" href="/" aria-label="ChainID Vault home">
           <span className="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none">
               <path d="M16 3.5 27 8v7.2c0 7.1-4.7 11.5-11 13.3C9.7 26.7 5 22.3 5 15.2V8l11-4.5Z" />
               <path d="m11.5 16 3 3 6-6" />
             </svg>
           </span>
-          <span>Identity &amp; Asset Registry</span>
+          <span>ChainID Vault</span>
         </a>
         <nav className="verification-navigation" aria-label="Main navigation">
           <a className="button button-small button-quiet" href="/">Dashboard</a>
@@ -364,7 +364,7 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
       )}
 
       <footer className="page-footer">
-        <span>Identity &amp; Asset Registry</span>
+        <span>ChainID Vault</span>
         <span>Public, read-only verification · No wallet required</span>
       </footer>
     </main>

@@ -248,7 +248,7 @@ function WalletApp() {
       const nonce = Array.from(nonceBytes, (value) => value.toString(16).padStart(2, '0')).join('')
       const did = didFor(wallet.account)
       const message = [
-        'Identity & Asset Registry DID Sign-In',
+        'ChainID Vault DID Sign-In',
         `Address: ${wallet.account}`,
         `DID: ${did}`,
         `Nonce: 0x${nonce}`,
@@ -296,14 +296,14 @@ function WalletApp() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Identity & Asset Registry home">
+        <a className="brand" href="/" aria-label="ChainID Vault home">
           <span className="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none">
               <path d="M16 3.5 27 8v7.2c0 7.1-4.7 11.5-11 13.3C9.7 26.7 5 22.3 5 15.2V8l11-4.5Z" />
               <path d="m11.5 16 3 3 6-6" />
             </svg>
           </span>
-          <span>Identity &amp; Asset Registry</span>
+          <span>ChainID Vault</span>
         </a>
         <div className="header-actions">
           <a className="topbar-verify-link" href="#/verify">Verify</a>
@@ -599,7 +599,7 @@ function WalletApp() {
       )}
 
       <footer className="page-footer">
-        <span>Identity &amp; Asset Registry</span>
+        <span>ChainID Vault</span>
         <span>Connected to a local Hardhat blockchain</span>
       </footer>
     </main>
