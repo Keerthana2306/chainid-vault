@@ -1,0 +1,10 @@
+Vigilance Clearance Record
+Review reference: VCR-2026-019
+Screening scope: fictional supplier records
+Record set: training dataset only
+Identity cross-check: completed
+Exception count: 0
+Review officer: compliance desk
+Clearance window: demonstration exercise
+Distribution: internal training copy
+This is a fictional document created for demonstration only. (demo data)

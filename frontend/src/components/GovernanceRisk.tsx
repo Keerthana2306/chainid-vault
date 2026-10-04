@@ -31,6 +31,8 @@ interface GovernanceIdentity {
 interface GovernanceAsset {
   tokenId: string
   owner: string
+  status: number
+  expiry: number
 }
 
 interface GovernanceData {
@@ -114,6 +116,8 @@ export function GovernanceRisk({ provider, refreshSignal }: GovernanceRiskProps)
     try {
       const contract = getContract(provider)
       const queriedEvents = await queryAuditEvents(contract)
+      const latestBlock = await provider.getBlock('latest')
+      if (!latestBlock) throw new Error('Could not load the latest block timestamp')
       const blockNumbers = [...new Set(queriedEvents.map(({ log }) => log.blockNumber))]
       const blockTimestamps = new Map<number, number>()
       await Promise.all(blockNumbers.map(async (blockNumber) => {
@@ -165,15 +169,26 @@ export function GovernanceRisk({ provider, refreshSignal }: GovernanceRiskProps)
       const tokenIds = [...new Set([...mintedTokenIds, ...currentOwners.keys()])]
       const assets = tokenIds.flatMap((tokenId) => {
         const owner = currentOwners.get(tokenId)
-        return owner ? [{ tokenId, owner }] : []
+        return owner ? [{ tokenId, owner, status: 0, expiry: 0 }] : []
       })
+      const assetsWithLifecycle = await Promise.all(assets.map(async (asset) => {
+        const [status, expiry] = await Promise.all([
+          contract.assetStatus(BigInt(asset.tokenId)),
+          contract.expiryOf(BigInt(asset.tokenId)),
+        ])
+        return {
+          ...asset,
+          status: Number(status),
+          expiry: Number(expiry),
+        }
+      }))
 
       setData({
         events,
         identities: identityRecords,
-        assets,
+        assets: assetsWithLifecycle,
         refreshedAt: new Date().toLocaleTimeString(),
-        asOf: Math.floor(Date.now() / 1000),
+        asOf: latestBlock.timestamp,
       })
     } catch (loadError) {
       const details = typeof loadError === 'object' && loadError !== null
@@ -222,6 +237,13 @@ export function GovernanceRisk({ provider, refreshSignal }: GovernanceRiskProps)
       .map((event) => event.tokenId as string))]
     return mintedTokenIds.filter((tokenId) => !assetHasActivitySinceMint(tokenId, data.events))
   }, [data])
+  const expiringAssets = data?.assets.filter((asset) =>
+    asset.status === 0 &&
+    asset.expiry > now &&
+    asset.expiry - now < 30 * 24 * 60 * 60,
+  ) ?? []
+  const expiredAssets = data?.assets.filter((asset) => asset.status === 1) ?? []
+  const revokedCertificateAssets = data?.assets.filter((asset) => asset.status === 2) ?? []
   const eventCounts = useMemo(() => {
     if (!data) return []
     const counts = new Map<string, number>()
@@ -322,6 +344,39 @@ export function GovernanceRisk({ provider, refreshSignal }: GovernanceRiskProps)
             {dormantAssets.length > 0 && (
               <ul className="risk-detail-list">
                 {dormantAssets.map((tokenId) => <li key={tokenId}>Token #{tokenId}</li>)}
+              </ul>
+            )}
+          </article>
+
+          <article className={`governance-risk-card ${!data ? 'risk-loading' : expiringAssets.length ? 'risk-warning' : 'risk-ok'}`}>
+            <span className="risk-status">{!data ? (loading ? 'LOADING' : 'UNAVAILABLE') : expiringAssets.length ? 'WARNING' : 'OK'}</span>
+            <h4>Assets expiring within 30 days</h4>
+            <p>{!data ? (loading ? 'Loading asset expiry data…' : 'Asset expiry data is unavailable.') : expiringAssets.length ? `${expiringAssets.length} asset${expiringAssets.length === 1 ? '' : 's'} expiring within 30 days.` : 'No assets expire within 30 days.'}</p>
+            {expiringAssets.length > 0 && (
+              <ul className="risk-detail-list">
+                {expiringAssets.map((asset) => <li key={asset.tokenId}>Token #{asset.tokenId} · {formatTime(asset.expiry)}</li>)}
+              </ul>
+            )}
+          </article>
+
+          <article className={`governance-risk-card ${!data ? 'risk-loading' : expiredAssets.length ? 'risk-danger' : 'risk-ok'}`}>
+            <span className="risk-status">{!data ? (loading ? 'LOADING' : 'UNAVAILABLE') : expiredAssets.length ? 'ALERT' : 'OK'}</span>
+            <h4>Expired assets</h4>
+            <p>{!data ? (loading ? 'Loading asset status…' : 'Asset status is unavailable.') : expiredAssets.length ? `${expiredAssets.length} expired asset${expiredAssets.length === 1 ? '' : 's'}.` : 'No expired assets.'}</p>
+            {expiredAssets.length > 0 && (
+              <ul className="risk-detail-list">
+                {expiredAssets.map((asset) => <li key={asset.tokenId}>Token #{asset.tokenId}</li>)}
+              </ul>
+            )}
+          </article>
+
+          <article className={`governance-risk-card ${!data ? 'risk-loading' : revokedCertificateAssets.length ? 'risk-danger' : 'risk-ok'}`}>
+            <span className="risk-status">{!data ? (loading ? 'LOADING' : 'UNAVAILABLE') : revokedCertificateAssets.length ? 'ALERT' : 'OK'}</span>
+            <h4>Revoked assets</h4>
+            <p>{!data ? (loading ? 'Loading asset status…' : 'Asset status is unavailable.') : revokedCertificateAssets.length ? `${revokedCertificateAssets.length} permanently revoked asset${revokedCertificateAssets.length === 1 ? '' : 's'}.` : 'No revoked assets.'}</p>
+            {revokedCertificateAssets.length > 0 && (
+              <ul className="risk-detail-list">
+                {revokedCertificateAssets.map((asset) => <li key={asset.tokenId}>Token #{asset.tokenId}</li>)}
               </ul>
             )}
           </article>

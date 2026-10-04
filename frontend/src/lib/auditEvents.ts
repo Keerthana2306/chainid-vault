@@ -95,6 +95,20 @@ export function eventDetails(name: string, args: Result): AuditEventDetails {
         tokenId: token,
         details: `Transferred token #${token} from ${displayAddress(address('from'))} to ${displayAddress(address('to'))}`,
       }
+    case 'AssetExpirySet':
+      return {
+        actor,
+        subjectAddress: null,
+        tokenId: token,
+        details: `Set token #${token} expiry to ${new Date(Number(args.expiry) * 1000).toLocaleDateString()}`,
+      }
+    case 'AssetRevoked':
+      return {
+        actor,
+        subjectAddress: null,
+        tokenId: token,
+        details: `Revoked token #${token}: ${String(args.reason)}`,
+      }
     case 'Transfer': {
       const from = address('from')
       const to = address('to')

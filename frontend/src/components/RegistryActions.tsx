@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { isAddress, type BrowserProvider, type ContractTransactionResponse, type JsonRpcSigner } from 'ethers'
 import { accounts, didFor, friendlyContractError, getContract, labelFor, roleHashes } from '../lib/contract'
 import { AuditTrail } from './AuditTrail'
@@ -108,7 +108,7 @@ export function RegistryActions({
   const [activity, setActivity] = useState<ActivityEntry[]>([])
   const [registerAddress, setRegisterAddress] = useState('')
   const [revokeAddress, setRevokeAddress] = useState('')
-  const [revokeConfirmed, setRevokeConfirmed] = useState(false)
+  const [identityRevokeConfirmed, setIdentityRevokeConfirmed] = useState(false)
   const [assignAddress, setAssignAddress] = useState('')
   const [assignRole, setAssignRole] = useState<keyof typeof roleHashes>('Manager')
   const [revokeRoleAddress, setRevokeRoleAddress] = useState('')
@@ -123,6 +123,36 @@ export function RegistryActions({
   const mintFileRequest = useRef(0)
   const [transferTokenId, setTransferTokenId] = useState('')
   const [transferAddress, setTransferAddress] = useState('')
+  const [lifecycleTokenIds, setLifecycleTokenIds] = useState<string[]>([])
+  const [lifecycleTokenError, setLifecycleTokenError] = useState<string | null>(null)
+  const [expiryTokenId, setExpiryTokenId] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
+  const [revokeTokenId, setRevokeTokenId] = useState('')
+  const [revokeReason, setRevokeReason] = useState('')
+  const [assetRevokeConfirmed, setAssetRevokeConfirmed] = useState(false)
+
+  useEffect(() => {
+    let current = true
+    const contract = getContract(provider)
+    void contract.queryFilter(contract.filters.AssetMinted(), 0).then((logs) => {
+      const tokenIds = [...new Set(logs.flatMap((log) =>
+        'args' in log ? [String(log.args.tokenId)] : [],
+      ))].sort((left, right) => Number(left) - Number(right))
+      if (current) {
+        setLifecycleTokenIds(tokenIds)
+        setExpiryTokenId((selected) => tokenIds.includes(selected) ? selected : tokenIds[0] ?? '')
+        setRevokeTokenId((selected) => tokenIds.includes(selected) ? selected : tokenIds[0] ?? '')
+        setLifecycleTokenError(null)
+      }
+    }).catch((error: unknown) => {
+      if (!current) return
+      const message = error instanceof Error ? error.message : 'Could not load asset token IDs.'
+      setLifecycleTokenError(message)
+    })
+    return () => {
+      current = false
+    }
+  }, [provider, refreshSignal, auditRefreshSignal])
 
   const recordAction = async (
     action: string,
@@ -283,7 +313,7 @@ export function RegistryActions({
             <ActionPanel title="Revoke identity" requirement="Admin" verified={verified}>
               <form onSubmit={(event) => {
                 event.preventDefault()
-                if (!revokeConfirmed) {
+                if (!identityRevokeConfirmed) {
                   return recordAction('Revoke identity', async () => {
                     throw Object.assign(new Error('Confirm that this is permanent before revoking'), {
                       shortMessage: 'Confirm that this is permanent before revoking',
@@ -309,8 +339,8 @@ export function RegistryActions({
                 <DemoAccountButtons label="Quick fill demo account" onSelect={setRevokeAddress} />
                 <label className="confirm-check">
                   <input
-                    checked={revokeConfirmed}
-                    onChange={(event) => setRevokeConfirmed(event.target.checked)}
+                    checked={identityRevokeConfirmed}
+                    onChange={(event) => setIdentityRevokeConfirmed(event.target.checked)}
                     type="checkbox"
                   />
                   <span>This is permanent. The identity cannot be restored.</span>
@@ -517,6 +547,93 @@ export function RegistryActions({
                 <DemoAccountButtons label="Quick fill demo account" onSelect={setTransferAddress} />
                 <button className="button button-primary" disabled={pending !== null} type="submit">
                   {pending === 'Hand over custody (NFT transfer)' ? pendingLabel(activity) : 'Hand over custody (NFT transfer)'}
+                </button>
+              </form>
+            </ActionPanel>
+
+            <ActionPanel title="Set expiry" requirement="Admin" verified={verified}>
+              <form onSubmit={(event) => {
+                event.preventDefault()
+                const expiryTimestamp = Math.floor(new Date(`${expiryDate}T23:59:59`).getTime() / 1000)
+                if (!expiryTokenId || !Number.isSafeInteger(expiryTimestamp) || expiryTimestamp <= 0) {
+                  return recordAction('Set asset expiry', async () => {
+                    throw Object.assign(new Error('Select an asset and a valid future expiry date'), {
+                      shortMessage: 'Select an asset and a valid future expiry date',
+                    })
+                  })
+                }
+                return recordAction(
+                  'Set asset expiry',
+                  (contract) => contract.setAssetExpiry(BigInt(expiryTokenId), BigInt(expiryTimestamp)),
+                )
+              }}>
+                <label className="form-field">
+                  <span>Asset token ID</span>
+                  <select onChange={(event) => setExpiryTokenId(event.target.value)} value={expiryTokenId}>
+                    {lifecycleTokenIds.length === 0 && <option value="">No minted assets</option>}
+                    {lifecycleTokenIds.map((tokenId) => <option key={tokenId} value={tokenId}>Token #{tokenId}</option>)}
+                  </select>
+                </label>
+                <label className="form-field">
+                  <span>Expiry date</span>
+                  <input
+                    onChange={(event) => setExpiryDate(event.target.value)}
+                    required
+                    type="date"
+                    value={expiryDate}
+                  />
+                </label>
+                {lifecycleTokenError && <p className="form-error" role="alert">{lifecycleTokenError}</p>}
+                <p className="form-hint">An expiry can only be set once per asset.</p>
+                <button className="button button-primary" disabled={pending !== null || lifecycleTokenIds.length === 0} type="submit">
+                  {pending === 'Set asset expiry' ? pendingLabel(activity) : 'Set expiry'}
+                </button>
+              </form>
+            </ActionPanel>
+
+            <ActionPanel title="Revoke asset (permanent)" requirement="Admin" verified={verified}>
+              <form onSubmit={(event) => {
+                event.preventDefault()
+                if (!assetRevokeConfirmed || !revokeReason.trim() || !revokeTokenId) {
+                  return recordAction('Revoke asset (permanent)', async () => {
+                    throw Object.assign(new Error('Select an asset, enter a reason, and confirm permanent revocation'), {
+                      shortMessage: 'Select an asset, enter a reason, and confirm permanent revocation',
+                    })
+                  })
+                }
+                return recordAction(
+                  'Revoke asset (permanent)',
+                  (contract) => contract.revokeAsset(BigInt(revokeTokenId), revokeReason.trim()),
+                )
+              }}>
+                <label className="form-field">
+                  <span>Asset token ID</span>
+                  <select onChange={(event) => setRevokeTokenId(event.target.value)} value={revokeTokenId}>
+                    {lifecycleTokenIds.length === 0 && <option value="">No minted assets</option>}
+                    {lifecycleTokenIds.map((tokenId) => <option key={tokenId} value={tokenId}>Token #{tokenId}</option>)}
+                  </select>
+                </label>
+                <label className="form-field">
+                  <span>Reason</span>
+                  <textarea
+                    onChange={(event) => setRevokeReason(event.target.value)}
+                    placeholder="Explain why this asset is being revoked"
+                    required
+                    rows={3}
+                    value={revokeReason}
+                  />
+                </label>
+                <label className="confirm-check">
+                  <input
+                    checked={assetRevokeConfirmed}
+                    onChange={(event) => setAssetRevokeConfirmed(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>This revocation is permanent and cannot be undone.</span>
+                </label>
+                {lifecycleTokenError && <p className="form-error" role="alert">{lifecycleTokenError}</p>}
+                <button className="button button-danger" disabled={pending !== null || lifecycleTokenIds.length === 0} type="submit">
+                  {pending === 'Revoke asset (permanent)' ? pendingLabel(activity) : 'Revoke asset (permanent)'}
                 </button>
               </form>
             </ActionPanel>

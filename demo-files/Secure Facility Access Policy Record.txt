@@ -1,0 +1,10 @@
+Secure Facility Access Policy Record
+Facility zone: North Annex (fictional)
+Policy revision: SAF-2026-04
+Credential class: supervised technical access
+Escort requirement: required for restricted rooms
+Review authority: site security office
+Distribution: internal demonstration copy
+Record status: approved for exercise
+No live facility details are included
+This is a fictional document created for demonstration only. (demo data)

@@ -47,6 +47,8 @@ function eventCategory(name: string, args: Result): string {
   if (name === 'RoleAssigned' || name === 'RoleGranted' || name === 'RoleAdminChanged') return 'role'
   if (name === 'AssetMinted') return 'asset-mint'
   if (name === 'AssetTransferred') return 'asset-transfer'
+  if (name === 'AssetExpirySet') return 'asset-expiry'
+  if (name === 'AssetRevoked') return 'asset-revoked'
   if (name === 'Transfer') return args.from === ZeroAddress ? 'asset-mint' : 'asset-transfer'
   return 'event'
 }

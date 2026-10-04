@@ -16,6 +16,7 @@ Organizations need dependable ways to manage identities, permissions, and asset 
 - **Public document verification:** verify a document without a wallet by comparing its file hash against the on-chain SHA-256 fingerprint, with an authentic or tampered result.
 - **Governance & Risk dashboard:** review single-admin warnings, frozen assets, role-change activity, and export the audit trail as CSV or JSON.
 - **In-app account switching:** switch between every account MetaMask has permitted for the site.
+- **Certificate lifecycle:** Admins can set a one-time expiry or permanently revoke an asset; revoked assets cannot be transferred.
 
 ## PS requirement mapping
 
@@ -131,6 +132,20 @@ All demo records below are fictional and are provided as demo data only:
 | #2 | Test Equipment Calibration Certificate | Calibration record for precision test equipment (demo data) | Alice |
 | #3 | Approved Vendor Qualification | Qualification certificate for an approved component supplier (demo data) | Bob |
 
+### Demo data
+
+Seeded asset custody and lifecycle states:
+
+| Current owner | Assets |
+| --- | --- |
+| Admin | #5 Secure Facility Access Policy Record — Valid; #6 Software Release Approval Record — Valid; #8 Unit Audit Closure Report — Valid |
+| Manager | #7 Production Line Clearance Certificate — Expiring soon; #11 Component Batch Inspection Report CBI-2026-0187 — Valid |
+| Auditor | #9 Quality Audit Findings Register Q3 — Valid; #10 Vigilance Clearance Record — Revoked |
+| Alice | #2 Test Equipment Calibration Certificate — Expiring soon; #12 Environmental Stress Test Report — Expired; #13 Firmware Integrity Certificate — Valid |
+| Bob | #1 Radar Module RM-2041 Test Certificate — Valid; #3 Approved Vendor Qualification — Valid; #4 Withdrawn Component Test Report — Revoked; #14 Supplier Delivery Verification Record — Expiring soon |
+
+The local chain clock is advanced by two days at the end of seeding so the Environmental Stress Test Report shows as Expired.
+
 ## Document verification (unique feature)
 
 Asset descriptions can include a document fingerprint suffix in the format ` | sha256:<hex>`, where `<hex>` is the lowercase, 64-character SHA-256 digest without a `0x` prefix. The issuance form hashes an optional attached file in the browser; only that fingerprint is appended to the on-chain description, and the document itself never leaves the browser. The public Verify page reads the record and custody history without a wallet, and compares a selected local file against the recorded fingerprint. Dashboard assets include a shareable verification link.
@@ -144,6 +159,10 @@ To try the seeded demo:
 5. Try tokens `2` and `3` with their matching files in `demo-files/`.
 
 The fingerprint is stored in the description only for this prototype. A production implementation would use a dedicated `bytes32` document-hash field in the contract (a contract change, not done in this prototype).
+
+## Certificate lifecycle (expiry and revocation)
+
+Admins can set an asset expiry once and permanently revoke an asset with an on-chain reason. The dashboard and Verify page show valid, expiring-soon, expired, or revoked status; revocation takes precedence over expiry and blocks transfers. In the seeded demo, token #2 expires in 20 days, tokens #1 and #3 expire in 365 days, and token #4 ("Withdrawn Component Test Report") is revoked as superseded. Open **Assets** to try setting an expiry or permanently revoking another asset, then view its status and reason in **Verify** or **Audit Trail**.
 
 ### What each role can do
 

@@ -15,6 +15,8 @@ interface AssetView {
   name: string
   description: string
   createdAt: string | null
+  lifecycleStatus: 'Valid' | 'Expiring soon' | 'Expired' | 'Revoked'
+  expiresAt: string | null
 }
 
 const roleDescriptions: Record<RoleName, string> = {
@@ -76,6 +78,10 @@ export function AssetCard({ asset }: { asset: AssetView }) {
         <span className="asset-art" aria-hidden="true">▱</span>
         <span className="token-label">TOKEN #{asset.tokenId}</span>
       </div>
+      <div className={`asset-lifecycle-badge lifecycle-${asset.lifecycleStatus.toLowerCase().replaceAll(' ', '-')}`}>
+        {asset.lifecycleStatus}
+      </div>
+      <div className="asset-expiry-date">{asset.expiresAt ? `Expires ${asset.expiresAt}` : 'No expiry set'}</div>
       <h3>{asset.name}</h3>
       <p className="asset-description">{cleanAssetDescription(asset.description) || 'No description provided.'}</p>
       <div className="asset-created">

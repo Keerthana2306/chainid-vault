@@ -88,6 +88,14 @@ export function friendlyContractError(error: unknown, contract: Contract | null)
           case 'AssetNotFound':
           case 'ERC721NonexistentToken':
             return 'That NFT does not exist'
+          case 'AssetExpiryAlreadySet':
+            return 'An expiry has already been set for that asset'
+          case 'AssetExpiryNotFuture':
+            return 'Choose an expiry date in the future'
+          case 'AssetAlreadyRevoked':
+            return 'That asset has already been permanently revoked'
+          case 'AssetIsRevoked':
+            return 'That asset is permanently revoked and cannot be transferred'
           case 'ERC721IncorrectOwner':
             return 'That NFT is not owned by this account'
           case 'ERC721InsufficientApproval':

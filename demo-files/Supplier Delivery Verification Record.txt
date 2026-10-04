@@ -1,0 +1,10 @@
+Supplier Delivery Verification Record
+Delivery reference: SDV-2026-082
+Supplier: Northstar Components (fictional)
+Packing list units: 320
+Received units: 320
+Seal inspection: passed
+Batch labels: matched
+Receiving witness: logistics quality desk
+Disposition: accepted for demonstration
+This is a fictional document created for demonstration only. (demo data)

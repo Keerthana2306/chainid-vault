@@ -1,0 +1,10 @@
+Firmware Integrity Certificate
+Product family: Sentinel Control Unit (fictional)
+Firmware release: 7.14.2
+Image reference: FW-2026-0714
+Digest check: passed
+Boot verification: passed
+Build review: independent second check
+Release authority: software assurance group
+Certificate status: approved for exercise
+This is a fictional document created for demonstration only. (demo data)

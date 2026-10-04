@@ -1,0 +1,10 @@
+Quality Audit Findings Register Q3
+Reporting period: third quarter 2026
+Audit reference: QAF-2026-Q3
+Observation count: 6
+Major findings: 1
+Minor findings: 5
+Traceability sample: 36 records
+Assigned reviewers: quality assurance team
+Disposition: fictional training register
+This is a fictional document created for demonstration only. (demo data)

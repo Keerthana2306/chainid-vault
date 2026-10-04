@@ -1,0 +1,10 @@
+Component Batch Inspection Report CBI-2026-0187
+Batch source: Northstar Components (fictional)
+Inspection reference: CBI-2026-0187
+Sample size: 48 units
+Visual inspection: passed
+Continuity sample: 48 of 48 passed
+Lot traceability: complete
+Inspector: incoming quality team
+Disposition: accepted for demonstration
+This is a fictional document created for demonstration only. (demo data)

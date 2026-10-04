@@ -23,6 +23,9 @@ interface VerificationRecord {
   owner: string
   ownerDid: string
   fingerprint: string | null
+  lifecycleStatus: 'Valid' | 'Expiring soon' | 'Expired' | 'Revoked'
+  expiresAt: number | null
+  revokeReason: string | null
   timeline: CustodyEvent[]
 }
 
@@ -100,11 +103,16 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
     }
 
     try {
-      const [asset, mintLogs, transferLogs] = await Promise.all([
+      const [asset, mintLogs, transferLogs, lifecycleStatus, expiry, revokedLogs, latestBlock] = await Promise.all([
         contract.getAsset(BigInt(requestedTokenId)),
         contract.queryFilter(contract.filters.AssetMinted(BigInt(requestedTokenId)), 0),
         contract.queryFilter(contract.filters.AssetTransferred(BigInt(requestedTokenId)), 0),
+        contract.assetStatus(BigInt(requestedTokenId)),
+        contract.expiryOf(BigInt(requestedTokenId)),
+        contract.queryFilter(contract.filters.AssetRevoked(BigInt(requestedTokenId)), 0),
+        provider.getBlock('latest'),
       ])
+      if (!latestBlock) throw new Error('Could not load the latest block timestamp')
       const mintLog = mintLogs.find((log): log is EventLog => 'args' in log)
       if (!mintLog) {
         setError('No issuance event found for this asset.')
@@ -141,6 +149,16 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
       const mintBlock = await provider.getBlock(mintLog.blockNumber)
       if (!mintBlock) throw new Error(`Could not load block ${mintLog.blockNumber}`)
       const ownerIdentity = await contract.getIdentity(currentOwner)
+      const expiryTimestamp = Number(expiry)
+      const status = Number(lifecycleStatus)
+      const currentLifecycleStatus = status === 2
+        ? 'Revoked'
+        : status === 1
+          ? 'Expired'
+          : expiryTimestamp > 0 && expiryTimestamp - latestBlock.timestamp < 30 * 24 * 60 * 60
+            ? 'Expiring soon'
+            : 'Valid'
+      const revokeLog = revokedLogs.find((log): log is EventLog => 'args' in log)
 
       setRecord({
         name: asset.name,
@@ -151,6 +169,9 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
         owner: currentOwner,
         ownerDid: ownerIdentity.did,
         fingerprint: parseDocumentFingerprint(asset.description),
+        lifecycleStatus: currentLifecycleStatus,
+        expiresAt: expiryTimestamp > 0 ? expiryTimestamp : null,
+        revokeReason: revokeLog ? String(revokeLog.args.reason) : null,
         timeline,
       })
     } catch (loadError) {
@@ -258,15 +279,32 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
       {error && <div className="notice notice-error verify-error" role="alert">{error}</div>}
       {record && (
         <>
+          <section className={`lifecycle-banner lifecycle-${record.lifecycleStatus.toLowerCase().replaceAll(' ', '-')}`} aria-live="polite">
+            <strong>Certificate status: {record.lifecycleStatus}</strong>
+            <span>{record.expiresAt ? `Expires ${formatTime(record.expiresAt)}` : 'No expiry set'}</span>
+            {record.lifecycleStatus === 'Revoked' && (
+              <span>Revocation reason: {record.revokeReason || 'No reason recorded'}</span>
+            )}
+          </section>
           {record.fingerprint ? (
             fileHash && (
               <section
-                className={`verification-result ${fileHash === record.fingerprint ? 'is-authentic' : 'is-tampered'}`}
+                className={`verification-result ${
+                  fileHash === record.fingerprint &&
+                  record.lifecycleStatus !== 'Revoked' &&
+                  record.lifecycleStatus !== 'Expired'
+                    ? 'is-authentic'
+                    : 'is-tampered'
+                }`}
                 aria-live="polite"
               >
                 <strong>
                   {fileHash === record.fingerprint
-                    ? 'AUTHENTIC: file matches the on-chain record'
+                    ? record.lifecycleStatus === 'Revoked'
+                      ? 'File is authentic but this certificate is REVOKED'
+                      : record.lifecycleStatus === 'Expired'
+                        ? 'File is authentic but this certificate is EXPIRED'
+                        : 'AUTHENTIC: file matches the on-chain record'
                     : 'TAMPERED: file does not match the on-chain record'}
                 </strong>
                 <div className="hash-comparison">

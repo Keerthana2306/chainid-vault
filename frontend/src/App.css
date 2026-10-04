@@ -1111,6 +1111,48 @@ h1 {
   font: 10px var(--mono);
 }
 
+.asset-lifecycle-badge {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 7px;
+  border: 1px solid;
+  border-radius: 100px;
+  padding: 5px 9px;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.lifecycle-valid {
+  border-color: #a9d4bd;
+  color: var(--green-deep);
+  background: var(--green-wash);
+}
+
+.lifecycle-expiring-soon {
+  border-color: #e7ca8d;
+  color: var(--amber-deep);
+  background: var(--amber-wash);
+}
+
+.lifecycle-expired {
+  border-color: #e6afb4;
+  color: var(--red-deep);
+  background: var(--red-wash);
+}
+
+.lifecycle-revoked {
+  border-color: #641a21;
+  color: #fff;
+  background: #741e27;
+}
+
+.asset-expiry-date {
+  margin: -3px 0 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
 .asset-card h3 {
   margin: 0 0 6px;
   color: var(--ink);
@@ -1811,6 +1853,18 @@ h1 {
   background: #e9f1fb;
 }
 
+.event-asset-expiry {
+  color: #744500;
+  border-color: #e7ca8d;
+  background: #fff2d6;
+}
+
+.event-asset-revoked {
+  color: #fff;
+  border-color: #641a21;
+  background: #741e27;
+}
+
 .event-revoke {
   color: #8b252d;
   border-color: #e6afb4;
@@ -2085,6 +2139,46 @@ h1 {
   border-color: #bac3cf;
   color: #46546a;
   background: #e8ecf2;
+}
+
+.lifecycle-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 16px;
+  padding: 15px 18px;
+  border: 1px solid;
+  border-radius: 9px;
+  font-size: 12px;
+}
+
+.lifecycle-banner strong {
+  font-size: 14px;
+}
+
+.lifecycle-banner.lifecycle-revoked {
+  border-color: #641a21;
+  color: #fff;
+  background: #741e27;
+}
+
+.lifecycle-banner.lifecycle-expired {
+  border-color: #e6afb4;
+  color: var(--red-deep);
+  background: var(--red-wash);
+}
+
+.lifecycle-banner.lifecycle-expiring-soon {
+  border-color: #e7ca8d;
+  color: var(--amber-deep);
+  background: var(--amber-wash);
+}
+
+.lifecycle-banner.lifecycle-valid {
+  border-color: #a9d4bd;
+  color: var(--green-deep);
+  background: var(--green-wash);
 }
 
 .hash-comparison {

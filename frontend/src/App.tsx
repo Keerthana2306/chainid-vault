@@ -19,6 +19,8 @@ interface AssetView {
   name: string
   description: string
   createdAt: string | null
+  lifecycleStatus: 'Valid' | 'Expiring soon' | 'Expired' | 'Revoked'
+  expiresAt: string | null
 }
 
 interface DashboardData {
@@ -145,6 +147,8 @@ function WalletApp() {
       contract.getRoles(wallet.account),
       contract.tokensOfOwner(wallet.account),
     ])
+    const latestBlock = await wallet.provider.getBlock('latest')
+    if (!latestBlock) throw new Error('Could not load the latest block timestamp')
 
     const nextIdentity: IdentityView | null = identityRecord.did
       ? {
@@ -156,12 +160,28 @@ function WalletApp() {
     const nextRoles = (roleHashes as string[]).map((hash) => roleName(hash))
     const nextAssets = await Promise.all(
       (tokenIds as bigint[]).map(async (tokenId) => {
-        const record = await contract.getAsset(tokenId)
+        const [record, lifecycleStatus, expiry] = await Promise.all([
+          contract.getAsset(tokenId),
+          contract.assetStatus(tokenId),
+          contract.expiryOf(tokenId),
+        ])
+        const expiryTimestamp = Number(expiry)
+        const expirySet = expiryTimestamp > 0
+        const status = Number(lifecycleStatus)
+        const lifecycleLabel = status === 2
+          ? 'Revoked'
+          : status === 1
+            ? 'Expired'
+            : expirySet && expiryTimestamp - latestBlock.timestamp < 30 * 24 * 60 * 60
+              ? 'Expiring soon'
+              : 'Valid'
         return {
           tokenId: BigInt(tokenId).toString(),
           name: record.name,
           description: record.description,
           createdAt: formatTimestamp(record.createdAt),
+          lifecycleStatus: lifecycleLabel as AssetView['lifecycleStatus'],
+          expiresAt: expirySet ? formatTimestamp(expiry) : null,
         }
       }),
     )

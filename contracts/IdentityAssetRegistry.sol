@@ -24,6 +24,8 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
 
     mapping(address => Identity) private _identities;
     mapping(uint256 => Asset) private _assets;
+    mapping(uint256 => uint64) public expiresAt;
+    mapping(uint256 => bool) public revoked;
     uint256 private _nextTokenId = 1;
     uint256 private _activeAdminCount;
 
@@ -36,6 +38,10 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
     error UnsupportedRole(bytes32 role);
     error LastAdminCannotBeRemoved();
     error AssetNotFound(uint256 tokenId);
+    error AssetExpiryAlreadySet(uint256 tokenId);
+    error AssetExpiryNotFuture(uint64 expiry);
+    error AssetAlreadyRevoked(uint256 tokenId);
+    error AssetIsRevoked(uint256 tokenId);
 
     event IdentityRegistered(
         address indexed account,
@@ -71,6 +77,18 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
         address indexed from,
         address indexed to,
         address actor,
+        uint256 timestamp
+    );
+    event AssetExpirySet(
+        uint256 indexed tokenId,
+        uint64 expiry,
+        address indexed actor,
+        uint256 timestamp
+    );
+    event AssetRevoked(
+        uint256 indexed tokenId,
+        address indexed actor,
+        string reason,
         uint256 timestamp
     );
     event AssetApprovalUpdated(
@@ -226,6 +244,45 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
         return _assets[tokenId];
     }
 
+    function setAssetExpiry(
+        uint256 tokenId,
+        uint64 expiry
+    ) external onlyActiveRole(DEFAULT_ADMIN_ROLE) {
+        _requireAssetExists(tokenId);
+        if (expiresAt[tokenId] != 0) revert AssetExpiryAlreadySet(tokenId);
+        if (expiry <= block.timestamp) revert AssetExpiryNotFuture(expiry);
+        expiresAt[tokenId] = expiry;
+        emit AssetExpirySet(tokenId, expiry, msg.sender, block.timestamp);
+    }
+
+    function revokeAsset(
+        uint256 tokenId,
+        string calldata reason
+    ) external onlyActiveRole(DEFAULT_ADMIN_ROLE) {
+        _requireAssetExists(tokenId);
+        if (revoked[tokenId]) revert AssetAlreadyRevoked(tokenId);
+        revoked[tokenId] = true;
+        emit AssetRevoked(tokenId, msg.sender, reason, block.timestamp);
+    }
+
+    function isRevoked(uint256 tokenId) external view returns (bool) {
+        _requireAssetExists(tokenId);
+        return revoked[tokenId];
+    }
+
+    function expiryOf(uint256 tokenId) external view returns (uint64) {
+        _requireAssetExists(tokenId);
+        return expiresAt[tokenId];
+    }
+
+    function assetStatus(uint256 tokenId) external view returns (uint8) {
+        _requireAssetExists(tokenId);
+        if (revoked[tokenId]) return 2;
+        uint64 expiry = expiresAt[tokenId];
+        if (expiry != 0 && block.timestamp >= expiry) return 1;
+        return 0;
+    }
+
     function tokensOfOwner(address account) external view returns (uint256[] memory tokens) {
         uint256 ownedCount;
         for (uint256 tokenId = 1; tokenId < _nextTokenId; tokenId++) {
@@ -252,6 +309,7 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
     ) internal override returns (address from) {
         from = _ownerOf(tokenId);
         if (from != address(0)) {
+            if (revoked[tokenId]) revert AssetIsRevoked(tokenId);
             _requireActiveIdentity(from);
             _requireActiveIdentity(auth);
             _checkRole(USER_ROLE, from);
@@ -317,6 +375,10 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
         }
     }
 
+    function _requireAssetExists(uint256 tokenId) private view {
+        if (_ownerOf(tokenId) == address(0)) revert AssetNotFound(tokenId);
+    }
+
     function _requireActiveIdentity(address account) private view {
         if (bytes(_identities[account].did).length == 0) {
             revert IdentityNotRegistered(account);
@@ -342,12 +404,12 @@ contract IdentityAssetRegistry is ERC721, AccessControl {
     }
 
     function _revokeRole(bytes32 role, address account) internal override returns (bool) {
-        bool revoked = super._revokeRole(role, account);
-        if (revoked && role == DEFAULT_ADMIN_ROLE) {
+        bool roleWasRevoked = super._revokeRole(role, account);
+        if (roleWasRevoked && role == DEFAULT_ADMIN_ROLE) {
             if (bytes(_identities[account].did).length == 0 || _identities[account].active) {
                 _activeAdminCount -= 1;
             }
         }
-        return revoked;
+        return roleWasRevoked;
     }
 }
