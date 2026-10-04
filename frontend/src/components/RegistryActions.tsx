@@ -1,7 +1,8 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { isAddress, type BrowserProvider, type ContractTransactionResponse, type JsonRpcSigner } from 'ethers'
 import { accounts, didFor, friendlyContractError, getContract, labelFor, roleHashes } from '../lib/contract'
 import { AuditTrail } from './AuditTrail'
+import { cleanAssetDescription, hashFile } from '../lib/documentFingerprint'
 
 interface OwnedAsset {
   tokenId: string
@@ -114,6 +115,11 @@ export function RegistryActions({
   const [mintAddress, setMintAddress] = useState('')
   const [mintName, setMintName] = useState('')
   const [mintDescription, setMintDescription] = useState('')
+  const [mintFile, setMintFile] = useState<File | null>(null)
+  const [mintFingerprint, setMintFingerprint] = useState<string | null>(null)
+  const [mintFileError, setMintFileError] = useState<string | null>(null)
+  const [hashingMintFile, setHashingMintFile] = useState(false)
+  const mintFileRequest = useRef(0)
   const [transferTokenId, setTransferTokenId] = useState('')
   const [transferAddress, setTransferAddress] = useState('')
 
@@ -384,12 +390,21 @@ export function RegistryActions({
         {panel === 'assets' && (
           <div className="action-grid">
             <ActionPanel title="Issue asset record (NFT)" requirement="Admin" verified={verified}>
-              <form onSubmit={(event) => submitAddress(
-                event,
-                mintAddress,
-                'Issue asset record (NFT)',
-                (contract, address) => contract.mintAsset(address, mintName, mintDescription),
-              )}>
+              <form onSubmit={(event) => {
+                if (mintFile && !mintFingerprint) {
+                  event.preventDefault()
+                  return
+                }
+                const description = mintFingerprint
+                  ? `${cleanAssetDescription(mintDescription)} | sha256:${mintFingerprint}`
+                  : mintDescription
+                return submitAddress(
+                  event,
+                  mintAddress,
+                  'Issue asset record (NFT)',
+                  (contract, address) => contract.mintAsset(address, mintName, description),
+                )
+              }}>
                 <label className="form-field">
                   <span>Recipient address</span>
                   <input
@@ -413,7 +428,44 @@ export function RegistryActions({
                     value={mintDescription}
                   />
                 </label>
-                <button className="button button-primary" disabled={pending !== null} type="submit">
+                <label className="form-field">
+                  <span>Attach document (optional)</span>
+                  <input
+                    accept="*/*"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0] ?? null
+                      const request = ++mintFileRequest.current
+                      setMintFile(file)
+                      setMintFingerprint(null)
+                      setMintFileError(null)
+                      if (!file) {
+                        setHashingMintFile(false)
+                        return
+                      }
+                      setHashingMintFile(true)
+                      try {
+                        const fingerprint = await hashFile(file)
+                        if (request === mintFileRequest.current) setMintFingerprint(fingerprint)
+                      } catch (error) {
+                        if (request === mintFileRequest.current) {
+                          setMintFileError(error instanceof Error ? error.message : 'Could not hash the selected file.')
+                        }
+                      } finally {
+                        if (request === mintFileRequest.current) setHashingMintFile(false)
+                      }
+                    }}
+                    type="file"
+                  />
+                </label>
+                {hashingMintFile && <p className="form-hint">Hashing document in your browser…</p>}
+                {mintFingerprint && <p className="fingerprint-preview"><span>SHA-256 fingerprint</span><code>{mintFingerprint}</code></p>}
+                {mintFileError && <p className="form-error" role="alert">{mintFileError}</p>}
+                <p className="form-hint">Only the fingerprint goes on-chain. The file never leaves your browser.</p>
+                <button
+                  className="button button-primary"
+                  disabled={pending !== null || hashingMintFile || Boolean(mintFile && !mintFingerprint)}
+                  type="submit"
+                >
                   {pending === 'Issue asset record (NFT)' ? pendingLabel(activity) : 'Issue asset record (NFT)'}
                 </button>
               </form>

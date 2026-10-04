@@ -1,0 +1,5 @@
+Approved Vendor Qualification
+Supplier: Northstar Components (fictional)
+Qualification score: 92
+Review status: Approved
+(demo data)

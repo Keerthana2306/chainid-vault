@@ -128,6 +128,20 @@ All demo records below are fictional and are provided as demo data only:
 | #2 | Test Equipment Calibration Certificate | Calibration record for precision test equipment (demo data) | Alice |
 | #3 | Approved Vendor Qualification | Qualification certificate for an approved component supplier (demo data) | Bob |
 
+## Document verification (unique feature)
+
+Asset descriptions can include a document fingerprint suffix in the format ` | sha256:<hex>`, where `<hex>` is the lowercase, 64-character SHA-256 digest without a `0x` prefix. The issuance form hashes an optional attached file in the browser; only that fingerprint is appended to the on-chain description, and the document itself never leaves the browser. The public Verify page reads the record and custody history without a wallet, and compares a selected local file against the recorded fingerprint. Dashboard assets include a shareable verification link.
+
+To try the seeded demo:
+
+1. Start the local node, deploy and seed the registry, and run the frontend as described above.
+2. Open **Verify** in the app or visit `http://localhost:5173/#/verify/1`.
+3. Verify token `1` and drop `demo-files/Radar Module RM-2041 Test Certificate.txt` onto the page; it should report **AUTHENTIC**.
+4. Drop `demo-files/radar-module-test-certificate-TAMPERED.txt`; the changed numeric value should report **TAMPERED**.
+5. Try tokens `2` and `3` with their matching files in `demo-files/`.
+
+The fingerprint is stored in the description only for this prototype. A production implementation would use a dedicated `bytes32` document-hash field in the contract (a contract change, not done in this prototype).
+
 ### What each role can do
 
 | Role | Dashboard description | Capabilities |

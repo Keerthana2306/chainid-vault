@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { RoleName } from '../lib/contract'
+import { cleanAssetDescription } from '../lib/documentFingerprint'
 
 interface DashboardCardProps {
   title: string
@@ -57,6 +58,18 @@ export function DashboardCard({
 }
 
 export function AssetCard({ asset }: { asset: AssetView }) {
+  const [copyMessage, setCopyMessage] = useState('')
+  const verifyUrl = `${window.location.origin}/#/verify/${asset.tokenId}`
+
+  const copyVerifyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(verifyUrl)
+      setCopyMessage('Link copied')
+    } catch {
+      setCopyMessage('Could not copy link')
+    }
+  }
+
   return (
     <article className="asset-card">
       <div className="asset-card-top">
@@ -64,10 +77,17 @@ export function AssetCard({ asset }: { asset: AssetView }) {
         <span className="token-label">TOKEN #{asset.tokenId}</span>
       </div>
       <h3>{asset.name}</h3>
-      <p className="asset-description">{asset.description || 'No description provided.'}</p>
+      <p className="asset-description">{cleanAssetDescription(asset.description) || 'No description provided.'}</p>
       <div className="asset-created">
         Created {asset.createdAt ?? 'date unavailable'}
       </div>
+      <div className="asset-verification-actions">
+        <button className="button button-small button-quiet" onClick={() => void copyVerifyLink()} type="button">
+          Copy verify link
+        </button>
+        <a className="asset-verification-link" href={`#/verify/${asset.tokenId}`}>Open verification</a>
+      </div>
+      {copyMessage && <span className="copy-link-status" role="status">{copyMessage}</span>}
     </article>
   )
 }

@@ -5,6 +5,7 @@ import { accounts, didFor, getContract, labelFor, roleName, type RoleName } from
 import { useWallet } from './hooks/useWallet'
 import { AssetCard, DashboardCard, RoleBadge } from './components/DashboardCard'
 import { RegistryActions } from './components/RegistryActions'
+import { VerifyPage } from './components/VerifyPage'
 import './App.css'
 
 interface IdentityView {
@@ -54,7 +55,7 @@ const demoRoles: Record<string, RoleName> = {
   Bob: 'User',
 }
 
-function App() {
+function WalletApp() {
   const wallet = useWallet()
   const [dashboard, setDashboard] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -243,6 +244,7 @@ function App() {
           <span>Identity &amp; Asset Registry</span>
         </a>
         <div className="header-actions">
+          <a className="topbar-verify-link" href="#/verify">Verify</a>
           {wallet.account ? (
             <div className="account-summary">
               <span className="account-avatar" aria-hidden="true">
@@ -526,6 +528,32 @@ function App() {
       </footer>
     </main>
   )
+}
+
+function verificationTokenFromHash(hash: string): string {
+  if (!hash.startsWith('#/verify')) return ''
+  const tokenPath = hash.slice('#/verify'.length).replace(/^\/+/, '').split(/[/?]/, 1)[0] ?? ''
+  try {
+    return decodeURIComponent(tokenPath)
+  } catch {
+    return tokenPath
+  }
+}
+
+function App() {
+  const [hash, setHash] = useState(() => window.location.hash)
+
+  useEffect(() => {
+    const updateHash = () => setHash(window.location.hash)
+    window.addEventListener('hashchange', updateHash)
+    return () => window.removeEventListener('hashchange', updateHash)
+  }, [])
+
+  if (hash.startsWith('#/verify')) {
+    const initialTokenId = verificationTokenFromHash(hash)
+    return <VerifyPage key={initialTokenId} initialTokenId={initialTokenId} />
+  }
+  return <WalletApp />
 }
 
 export default App

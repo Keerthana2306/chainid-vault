@@ -1,0 +1,5 @@
+Radar Module RM-2041
+Factory acceptance test: PASS
+Measured output: 25.8 dBm
+Inspection batch: RM-2041-07
+(demo data)

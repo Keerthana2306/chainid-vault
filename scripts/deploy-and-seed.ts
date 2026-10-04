@@ -42,25 +42,36 @@ await (await registry.assignRole(auditor.address, roles.auditor)).wait();
 await registerIdentity(alice);
 await registerIdentity(bob);
 
+const fingerprintForDemoFile = async (fileName: string) =>
+  ethers.sha256(await readFile(new URL(`../demo-files/${fileName}`, import.meta.url)))
+    .slice(2)
+    .toLowerCase();
+
+const demoFingerprints = {
+  radar: await fingerprintForDemoFile("Radar Module RM-2041 Test Certificate.txt"),
+  calibration: await fingerprintForDemoFile("Test Equipment Calibration Certificate.txt"),
+  vendor: await fingerprintForDemoFile("Approved Vendor Qualification.txt"),
+};
+
 await (
   await registry.mintAsset(
     alice.address,
     "Radar Module RM-2041 Test Certificate",
-    "Factory acceptance test record for a radar subsystem batch (demo data)",
+    `Factory acceptance test record for a radar subsystem batch (demo data) | sha256:${demoFingerprints.radar}`,
   )
 ).wait();
 await (
   await registry.mintAsset(
     alice.address,
     "Test Equipment Calibration Certificate",
-    "Calibration record for precision test equipment (demo data)",
+    `Calibration record for precision test equipment (demo data) | sha256:${demoFingerprints.calibration}`,
   )
 ).wait();
 await (
   await registry.mintAsset(
     bob.address,
     "Approved Vendor Qualification",
-    "Qualification certificate for an approved component supplier (demo data)",
+    `Qualification certificate for an approved component supplier (demo data) | sha256:${demoFingerprints.vendor}`,
   )
 ).wait();
 
