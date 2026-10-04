@@ -3,6 +3,7 @@ import { isAddress, type BrowserProvider, type ContractTransactionResponse, type
 import { accounts, didFor, friendlyContractError, getContract, labelFor, roleHashes } from '../lib/contract'
 import { AuditTrail } from './AuditTrail'
 import { cleanAssetDescription, hashFile } from '../lib/documentFingerprint'
+import { GovernanceRisk } from './GovernanceRisk'
 
 interface OwnedAsset {
   tokenId: string
@@ -20,7 +21,7 @@ interface RegistryActionsProps {
   onSuccess: () => Promise<void>
 }
 
-type Panel = 'identity' | 'roles' | 'assets' | 'audit'
+type Panel = 'identity' | 'roles' | 'assets' | 'audit' | 'governance'
 type ActivityStatus = 'pending' | 'success' | 'failed'
 
 interface ActivityEntry {
@@ -238,6 +239,7 @@ export function RegistryActions({
           ['roles', 'Roles'],
           ['assets', 'Assets'],
           ['audit', 'Audit Trail'],
+          ['governance', 'Governance & Risk'],
         ] as const).map(([id, label]) => (
           <button
             aria-current={panel === id ? 'page' : undefined}
@@ -323,6 +325,9 @@ export function RegistryActions({
 
         {panel === 'audit' && (
           <AuditTrail provider={provider} refreshSignal={refreshSignal + auditRefreshSignal} />
+        )}
+        {panel === 'governance' && (
+          <GovernanceRisk provider={provider} refreshSignal={refreshSignal + auditRefreshSignal} />
         )}
 
         {panel === 'roles' && (

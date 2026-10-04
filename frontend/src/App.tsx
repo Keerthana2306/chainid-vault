@@ -47,14 +47,6 @@ function formatTimestamp(value: bigint | number): string | null {
   }).format(new Date(milliseconds))
 }
 
-const demoRoles: Record<string, RoleName> = {
-  Admin: 'Admin',
-  Manager: 'Manager',
-  Auditor: 'Auditor',
-  Alice: 'User',
-  Bob: 'User',
-}
-
 function WalletApp() {
   const wallet = useWallet()
   const [dashboard, setDashboard] = useState<DashboardData | null>(null)
@@ -68,6 +60,12 @@ function WalletApp() {
   } | null>(null)
   const [signing, setSigning] = useState(false)
   const [signInError, setSignInError] = useState<string | null>(null)
+  const [permittedAccountRoles, setPermittedAccountRoles] = useState<Record<string, {
+    registered: boolean
+    roles: RoleName[]
+    error: string | null
+  }>>({})
+  const [copyAddressMessage, setCopyAddressMessage] = useState('')
   const verified = Boolean(
     didSession &&
     wallet.account &&
@@ -91,6 +89,50 @@ function WalletApp() {
     readError?.account === wallet.account && readError.provider === wallet.provider
       ? readError.message
       : null
+
+  useEffect(() => {
+    if (!wallet.provider) return
+
+    let current = true
+    const contract = getContract(wallet.provider)
+    void Promise.all(wallet.permittedAccounts.map(async (address) => {
+      try {
+        const [identityRecord, roleHashes] = await Promise.all([
+          contract.getIdentity(address),
+          contract.getRoles(address),
+        ])
+        const roles = (roleHashes as string[]).map((hash) => roleName(hash))
+        return [address.toLowerCase(), {
+          registered: Boolean(identityRecord.did),
+          roles,
+          error: null,
+        }] as const
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Could not read account roles.'
+        return [address.toLowerCase(), {
+          registered: false,
+          roles: [],
+          error: message,
+        }] as const
+      }
+    })).then((results) => {
+      if (current) setPermittedAccountRoles(Object.fromEntries(results))
+    })
+
+    return () => {
+      current = false
+    }
+  }, [wallet.provider, wallet.permittedAccounts])
+
+  const copyActiveAddress = async () => {
+    if (!wallet.account) return
+    try {
+      await navigator.clipboard.writeText(wallet.account)
+      setCopyAddressMessage('Address copied')
+    } catch {
+      setCopyAddressMessage('Could not copy address')
+    }
+  }
 
   const fetchDashboard = useCallback(async (): Promise<DashboardData | null> => {
     if (!wallet.provider || !wallet.account || !wallet.contractDeployed) {
@@ -285,42 +327,53 @@ function WalletApp() {
       </header>
 
       {wallet.account && (
-        <section className="acting-bar" aria-label="Choose active demo account">
+        <section className="acting-bar" aria-label="Choose active account">
           <div className="acting-title">
             <strong>Acting as</strong>
-            <span>Choose a permitted demo account</span>
+            <span>Choose an account permitted for this site</span>
           </div>
           <div className="acting-account-list">
-            {accounts.map((demoAccount) => {
-              const permitted = wallet.permittedAccounts.some(
-                (address) => address.toLowerCase() === demoAccount.address.toLowerCase(),
+            {wallet.permittedAccounts.map((address) => {
+              const demoAccount = accounts.find(
+                (entry) => entry.address.toLowerCase() === address.toLowerCase(),
               )
-              const active = wallet.account?.toLowerCase() === demoAccount.address.toLowerCase()
+              const accountState = permittedAccountRoles[address.toLowerCase()]
+              const active = wallet.account?.toLowerCase() === address.toLowerCase()
+              const accountLabel = demoAccount?.label ?? `Account ${address.slice(0, 6)}`
               return (
                 <button
                   aria-pressed={active}
                   className={`acting-account ${active ? 'is-active' : ''}`}
-                  disabled={!permitted}
-                  key={demoAccount.address}
-                  onClick={() => void wallet.selectAccount(demoAccount.address)}
-                  title={permitted ? `${demoAccount.label} · ${demoAccount.address}` : 'Not connected in MetaMask'}
+                  key={address.toLowerCase()}
+                  onClick={() => void wallet.selectAccount(address)}
+                  title={`${accountLabel} · ${address}`}
                 >
                   <span className="acting-account-copy">
-                    <strong>{demoAccount.label}</strong>
-                    <span>{`${demoAccount.address.slice(0, 6)}...${demoAccount.address.slice(-4)}`}</span>
+                    <strong>{accountLabel}</strong>
+                    <span>{`${address.slice(0, 6)}...${address.slice(-4)}`}</span>
                   </span>
-                  <RoleBadge role={demoRoles[demoAccount.label]} />
+                  {accountState?.error ? (
+                    <span className="role-badge role-unavailable" title={accountState.error}>Unavailable</span>
+                  ) : !accountState ? (
+                    <span className="role-badge role-unavailable">Loading…</span>
+                  ) : !accountState.registered ? (
+                    <span className="role-badge role-not-registered">Not registered</span>
+                  ) : accountState.roles.length ? (
+                    <span className="acting-account-roles">
+                      {accountState.roles.map((role) => <RoleBadge key={role} role={role} />)}
+                    </span>
+                  ) : (
+                    <span className="role-badge role-not-registered">No roles</span>
+                  )}
                 </button>
               )
             })}
           </div>
           <button
             className="button button-small button-quiet connect-more-button"
-            onClick={() => void (wallet.accountSelectionMessage
-              ? wallet.refreshSelectedAccount()
-              : wallet.connectMoreAccounts())}
+            onClick={() => void wallet.connectMoreAccounts()}
           >
-            {wallet.accountSelectionMessage ? 'Refresh' : 'Connect more accounts'}
+            Connect more accounts
           </button>
         </section>
       )}
@@ -425,9 +478,12 @@ function WalletApp() {
                 </div>
               ) : (
                 <div className="empty-identity">
-                  <strong>Not registered</strong>
-                  <span>Your identity DID will be</span>
-                  <code>{didFor(wallet.account)}</code>
+                  <strong>This wallet is not registered yet. Ask an Admin to register this address</strong>
+                  <code>{wallet.account}</code>
+                  <button className="button button-small button-quiet copy-address-button" onClick={() => void copyActiveAddress()} type="button">
+                    Copy address
+                  </button>
+                  {copyAddressMessage && <span className="copy-address-status" role="status">{copyAddressMessage}</span>}
                 </div>
               )}
             </DashboardCard>
