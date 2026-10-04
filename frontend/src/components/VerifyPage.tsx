@@ -1,5 +1,6 @@
 import { useMemo, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
 import { Contract, JsonRpcProvider, type EventLog } from 'ethers'
+import { adjustToLocalClock } from '../lib/chainTime'
 import { contractAbi, contractAddress, labelFor } from '../lib/contract'
 import { cleanAssetDescription, hashFile, parseDocumentFingerprint } from '../lib/documentFingerprint'
 
@@ -113,6 +114,7 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
         provider.getBlock('latest'),
       ])
       if (!latestBlock) throw new Error('Could not load the latest block timestamp')
+      const localNow = Date.now()
       const mintLog = mintLogs.find((log): log is EventLog => 'args' in log)
       if (!mintLog) {
         setError('No issuance event found for this asset.')
@@ -137,7 +139,7 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
           actor,
           from,
           to,
-          timestamp: block.timestamp,
+          timestamp: adjustToLocalClock(block.timestamp, latestBlock.timestamp, localNow),
           blockNumber: log.blockNumber,
           logIndex: log.index,
           transactionHash: log.transactionHash,
@@ -165,12 +167,14 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
         description: cleanAssetDescription(asset.description),
         tokenId: requestedTokenId,
         issuer,
-        issuedAt: mintBlock.timestamp,
+        issuedAt: adjustToLocalClock(mintBlock.timestamp, latestBlock.timestamp, localNow),
         owner: currentOwner,
         ownerDid: ownerIdentity.did,
         fingerprint: parseDocumentFingerprint(asset.description),
         lifecycleStatus: currentLifecycleStatus,
-        expiresAt: expiryTimestamp > 0 ? expiryTimestamp : null,
+        expiresAt: expiryTimestamp > 0
+          ? adjustToLocalClock(expiryTimestamp, latestBlock.timestamp, localNow)
+          : null,
         revokeReason: revokeLog ? String(revokeLog.args.reason) : null,
         timeline,
       })
@@ -328,7 +332,7 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
             <dl className="record-details">
               <div><dt>Token ID</dt><dd>#{record.tokenId}</dd></div>
               <div><dt>Issued by</dt><dd>{displayAddress(record.issuer)}</dd></div>
-              <div><dt>Issued at</dt><dd>{formatTime(record.issuedAt)}</dd></div>
+              <div><dt>Issued at (local time)</dt><dd>{formatTime(record.issuedAt)}</dd></div>
               <div><dt>Current owner</dt><dd>{displayAddress(record.owner)}</dd></div>
               <div className="record-owner-did"><dt>Owner DID</dt><dd>{record.ownerDid || 'No DID registered'}</dd></div>
               {record.fingerprint && (

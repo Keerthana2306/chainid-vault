@@ -85,7 +85,7 @@ export function AssetCard({ asset }: { asset: AssetView }) {
       <h3>{asset.name}</h3>
       <p className="asset-description">{cleanAssetDescription(asset.description) || 'No description provided.'}</p>
       <div className="asset-created">
-        Created {asset.createdAt ?? 'date unavailable'}
+        Issued (local time) {asset.createdAt ?? 'date unavailable'}
       </div>
       <div className="asset-verification-actions">
         <button className="button button-small button-quiet" onClick={() => void copyVerifyLink()} type="button">

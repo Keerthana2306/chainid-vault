@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { BrowserProvider } from 'ethers'
 import { verifyMessage } from 'ethers'
 import { accounts, didFor, getContract, labelFor, roleName, type RoleName } from './lib/contract'
+import { adjustToLocalClock } from './lib/chainTime'
 import { useWallet } from './hooks/useWallet'
 import { AssetCard, DashboardCard, RoleBadge } from './components/DashboardCard'
 import { RegistryActions } from './components/RegistryActions'
@@ -149,11 +150,14 @@ function WalletApp() {
     ])
     const latestBlock = await wallet.provider.getBlock('latest')
     if (!latestBlock) throw new Error('Could not load the latest block timestamp')
+    const localNow = Date.now()
 
     const nextIdentity: IdentityView | null = identityRecord.did
       ? {
           did: identityRecord.did,
-          registeredAt: formatTimestamp(identityRecord.registeredAt),
+          registeredAt: formatTimestamp(
+            adjustToLocalClock(identityRecord.registeredAt, latestBlock.timestamp, localNow),
+          ),
           active: identityRecord.active,
         }
       : null
@@ -179,9 +183,13 @@ function WalletApp() {
           tokenId: BigInt(tokenId).toString(),
           name: record.name,
           description: record.description,
-          createdAt: formatTimestamp(record.createdAt),
+          createdAt: formatTimestamp(
+            adjustToLocalClock(record.createdAt, latestBlock.timestamp, localNow),
+          ),
           lifecycleStatus: lifecycleLabel as AssetView['lifecycleStatus'],
-          expiresAt: expirySet ? formatTimestamp(expiry) : null,
+          expiresAt: expirySet
+            ? formatTimestamp(adjustToLocalClock(expiry, latestBlock.timestamp, localNow))
+            : null,
         }
       }),
     )
