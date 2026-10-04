@@ -13,6 +13,9 @@ Organizations need dependable ways to manage identities, permissions, and asset 
 - **On-chain audit trail:** identity, role, and asset changes emit contract events.
 - **DID signature login:** verify control of a wallet by signing a nonce-bearing challenge.
 - **Audit explorer:** inspect contract events, registered identities, and NFT timelines.
+- **Public document verification:** verify a document without a wallet by comparing its file hash against the on-chain SHA-256 fingerprint, with an authentic or tampered result.
+- **Governance & Risk dashboard:** review single-admin warnings, frozen assets, role-change activity, and export the audit trail as CSV or JSON.
+- **In-app account switching:** switch between every account MetaMask has permitted for the site.
 
 ## PS requirement mapping
 
@@ -173,6 +176,8 @@ All demo accounts, names, and asset records in this prototype are fictional. The
 - Auditor is a read-only role. Read methods are public on-chain, and all action panels remain visible after DID sign-in so unauthorized write attempts demonstrate contract-enforced permissions.
 - Revoked identities cannot be re-activated; register each wallet only once.
 - This setup targets the local Hardhat network only.
+- The Verify page reads from a local node at `127.0.0.1:8545`; verification links work only on the same machine.
+- Document fingerprints are stored in the asset description text. A production version would use a dedicated contract field.
 - DIDs use the `did:ethr`-style address format and have no DID resolver.
 
 ## Tests and checks
