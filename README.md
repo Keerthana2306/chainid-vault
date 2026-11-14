@@ -194,10 +194,30 @@ All demo accounts, names, and asset records in this prototype are fictional. The
 
 - Auditor is a read-only role. Read methods are public on-chain, and all action panels remain visible after DID sign-in so unauthorized write attempts demonstrate contract-enforced permissions.
 - Revoked identities cannot be re-activated; register each wallet only once.
-- This setup targets the local Hardhat network only.
+- The frontend is configured for a local node; the root scripts also support deploying, verifying, and minimally seeding the contract on Sepolia.
 - The Verify page reads from a local node at `127.0.0.1:8545`; verification links work only on the same machine.
 - Document fingerprints are stored in the asset description text. A production version would use a dedicated contract field.
 - DIDs use the `did:ethr`-style address format and have no DID resolver.
+
+## Sepolia deployment
+
+Set the Sepolia RPC URL, deployer private key, and Etherscan API key in the Hardhat keystore:
+
+```sh
+npx hardhat keystore set SEPOLIA_RPC_URL
+npx hardhat keystore set SEPOLIA_PRIVATE_KEY
+npx hardhat keystore set ETHERSCAN_API_KEY
+```
+
+Then deploy, verify, and seed from the repository root:
+
+```sh
+npm run deploy:sepolia
+npm run verify:sepolia
+npm run seed:sepolia
+```
+
+The deployment address and ABI are saved to `deployments/sepolia.json`. Verification reads this address and submits the contract with its no-argument constructor configuration. The seed registers the deployer and mints two demo assets using fingerprints from `demo-files/`.
 
 ## Tests and checks
 
