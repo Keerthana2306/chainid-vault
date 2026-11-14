@@ -2,6 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ZeroAddress, type BrowserProvider, type Result } from 'ethers'
 import { ADMIN, getContract } from '../lib/contract'
 import { asAddress, displayAddress, eventDetails, queryAuditEvents } from '../lib/auditEvents'
+import { tokenExplorerUrl, transactionExplorerUrl } from '../lib/network'
+
+function TokenReference({ tokenId }: { tokenId: string }) {
+  const url = tokenExplorerUrl(tokenId)
+  return url
+    ? <a href={url} target="_blank" rel="noreferrer">Token #{tokenId}</a>
+    : <>Token #{tokenId}</>
+}
 
 interface GovernanceRiskProps {
   provider: BrowserProvider
@@ -315,7 +323,7 @@ export function GovernanceRisk({ provider, refreshSignal }: GovernanceRiskProps)
               <>
                 <p>These assets are frozen.</p>
                 <ul className="risk-detail-list">
-                  {revokedAssets.map((asset) => <li key={asset.tokenId}>Token #{asset.tokenId} · {displayAddress(asset.owner)}</li>)}
+                  {revokedAssets.map((asset) => <li key={asset.tokenId}><TokenReference tokenId={asset.tokenId} /> · {displayAddress(asset.owner)}</li>)}
                 </ul>
               </>
             ) : <p>No assets are currently held by revoked identities.</p>}
@@ -331,6 +339,11 @@ export function GovernanceRisk({ provider, refreshSignal }: GovernanceRiskProps)
                   <li key={`${event.transactionHash}-${event.logIndex}`}>
                     {event.details}
                     <time>{formatTime(event.timestamp)}</time>
+                    {transactionExplorerUrl(event.transactionHash) && (
+                      <a href={transactionExplorerUrl(event.transactionHash) ?? undefined} target="_blank" rel="noreferrer">
+                        View transaction
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -343,7 +356,7 @@ export function GovernanceRisk({ provider, refreshSignal }: GovernanceRiskProps)
             <p>{!data ? (loading ? 'Loading asset history…' : 'Asset event data is unavailable.') : dormantAssets.length ? `${dormantAssets.length} asset${dormantAssets.length === 1 ? '' : 's'} have no custody activity since minting.` : 'Every asset has custody activity after minting.'}</p>
             {dormantAssets.length > 0 && (
               <ul className="risk-detail-list">
-                {dormantAssets.map((tokenId) => <li key={tokenId}>Token #{tokenId}</li>)}
+                {dormantAssets.map((tokenId) => <li key={tokenId}><TokenReference tokenId={tokenId} /></li>)}
               </ul>
             )}
           </article>
@@ -354,7 +367,7 @@ export function GovernanceRisk({ provider, refreshSignal }: GovernanceRiskProps)
             <p>{!data ? (loading ? 'Loading asset expiry data…' : 'Asset expiry data is unavailable.') : expiringAssets.length ? `${expiringAssets.length} asset${expiringAssets.length === 1 ? '' : 's'} expiring within 30 days.` : 'No assets expire within 30 days.'}</p>
             {expiringAssets.length > 0 && (
               <ul className="risk-detail-list">
-                {expiringAssets.map((asset) => <li key={asset.tokenId}>Token #{asset.tokenId} · {formatTime(asset.expiry)}</li>)}
+                {expiringAssets.map((asset) => <li key={asset.tokenId}><TokenReference tokenId={asset.tokenId} /> · {formatTime(asset.expiry)}</li>)}
               </ul>
             )}
           </article>
@@ -365,7 +378,7 @@ export function GovernanceRisk({ provider, refreshSignal }: GovernanceRiskProps)
             <p>{!data ? (loading ? 'Loading asset status…' : 'Asset status is unavailable.') : expiredAssets.length ? `${expiredAssets.length} expired asset${expiredAssets.length === 1 ? '' : 's'}.` : 'No expired assets.'}</p>
             {expiredAssets.length > 0 && (
               <ul className="risk-detail-list">
-                {expiredAssets.map((asset) => <li key={asset.tokenId}>Token #{asset.tokenId}</li>)}
+                {expiredAssets.map((asset) => <li key={asset.tokenId}><TokenReference tokenId={asset.tokenId} /></li>)}
               </ul>
             )}
           </article>
@@ -376,7 +389,7 @@ export function GovernanceRisk({ provider, refreshSignal }: GovernanceRiskProps)
             <p>{!data ? (loading ? 'Loading asset status…' : 'Asset status is unavailable.') : revokedCertificateAssets.length ? `${revokedCertificateAssets.length} permanently revoked asset${revokedCertificateAssets.length === 1 ? '' : 's'}.` : 'No revoked assets.'}</p>
             {revokedCertificateAssets.length > 0 && (
               <ul className="risk-detail-list">
-                {revokedCertificateAssets.map((asset) => <li key={asset.tokenId}>Token #{asset.tokenId}</li>)}
+                {revokedCertificateAssets.map((asset) => <li key={asset.tokenId}><TokenReference tokenId={asset.tokenId} /></li>)}
               </ul>
             )}
           </article>

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { isAddress, type BrowserProvider, type ContractTransactionResponse, type JsonRpcSigner } from 'ethers'
+import { isAddress, type BrowserProvider, type ContractTransactionResponse, type JsonRpcSigner, type TransactionReceipt } from 'ethers'
 import { accounts, didFor, friendlyContractError, getContract, labelFor, roleHashes } from '../lib/contract'
 import { AuditTrail } from './AuditTrail'
 import { cleanAssetDescription, hashFile } from '../lib/documentFingerprint'
 import { GovernanceRisk } from './GovernanceRisk'
+import { chainName, isLocal, transactionExplorerUrl } from '../lib/network'
+import { queryFilterInChunks } from '../lib/queryLogs'
 
 interface OwnedAsset {
   tokenId: string
@@ -30,6 +32,7 @@ interface ActivityEntry {
   status: ActivityStatus
   message: string
   createdAt: string
+  transactionHash?: string
 }
 
 interface ActionPanelProps {
@@ -69,6 +72,8 @@ function DemoAccountButtons({
   onSelect: (address: string) => void
   label: string
 }) {
+  if (!isLocal) return null
+
   return (
     <fieldset className="quick-fill">
       <legend>{label}</legend>
@@ -134,7 +139,7 @@ export function RegistryActions({
   useEffect(() => {
     let current = true
     const contract = getContract(provider)
-    void contract.queryFilter(contract.filters.AssetMinted(), 0).then((logs) => {
+    void queryFilterInChunks(contract, contract.filters.AssetMinted()).then((logs) => {
       const tokenIds = [...new Set(logs.flatMap((log) =>
         'args' in log ? [String(log.args.tokenId)] : [],
       ))].sort((left, right) => Number(left) - Number(right))
@@ -170,18 +175,54 @@ export function RegistryActions({
 
     try {
       if (!signer) {
-        throw Object.assign(new Error('Connect a wallet on the Hardhat Local network first'), {
-          shortMessage: 'Connect a wallet on the Hardhat Local network first',
+        throw Object.assign(new Error(`Connect a wallet on the ${chainName} network first`), {
+          shortMessage: `Connect a wallet on the ${chainName} network first`,
         })
       }
       const contract = getContract(signer)
       const transaction = await send(contract)
+      const updateConfirmations = async () => {
+        try {
+          const receipt = await provider.getTransactionReceipt(transaction.hash)
+          if (!receipt) return
+          const currentBlock = await provider.getBlockNumber()
+          const confirmations = Math.max(0, currentBlock - receipt.blockNumber + 1)
+          setActivity((entries) => entries.map((entry) =>
+            entry.id === id
+              ? {
+                  ...entry,
+                  message: `Pending · ${confirmations} confirmation${confirmations === 1 ? '' : 's'}`,
+                }
+              : entry,
+          ))
+        } catch (error) {
+          const message = friendlyContractError(error, null)
+          setActivity((entries) => entries.map((entry) =>
+            entry.id === id ? { ...entry, message } : entry,
+          ))
+        }
+      }
       setActivity((entries) => entries.map((entry) =>
-        entry.id === id ? { ...entry, message: 'Confirming...' } : entry,
+        entry.id === id
+          ? {
+              ...entry,
+              transactionHash: transaction.hash,
+              message: 'Pending · 0 confirmations',
+            }
+          : entry,
       ))
-      const receipt = await transaction.wait()
+      await updateConfirmations()
+      const confirmationInterval = window.setInterval(() => void updateConfirmations(), 2000)
+      let receipt: TransactionReceipt | null
+      try {
+        receipt = await transaction.wait()
+      } finally {
+        window.clearInterval(confirmationInterval)
+      }
       if (!receipt) throw new Error('Transaction was not confirmed')
-      const message = `Confirmed · ${shortHash(transaction.hash)}`
+      const currentBlock = await provider.getBlockNumber()
+      const confirmations = Math.max(1, currentBlock - receipt.blockNumber + 1)
+      const message = `Confirmed · ${confirmations} confirmation${confirmations === 1 ? '' : 's'} · ${shortHash(transaction.hash)}`
       setActivity((entries) => entries.map((entry) =>
         entry.id === id ? { ...entry, status: 'success', message } : entry,
       ))
@@ -237,6 +278,11 @@ export function RegistryActions({
               <div className="activity-copy">
                 <strong>{entry.action}</strong>
                 <span>{entry.message}</span>
+                {entry.transactionHash && transactionExplorerUrl(entry.transactionHash) && (
+                  <a href={transactionExplorerUrl(entry.transactionHash) ?? undefined} target="_blank" rel="noreferrer">
+                    View transaction {shortHash(entry.transactionHash)}
+                  </a>
+                )}
               </div>
               <div className="activity-meta">
                 <time>{entry.createdAt}</time>

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import type { RoleName } from '../lib/contract'
 import { cleanAssetDescription } from '../lib/documentFingerprint'
+import { tokenExplorerUrl } from '../lib/network'
 
 interface DashboardCardProps {
   title: string
@@ -76,7 +77,11 @@ export function AssetCard({ asset }: { asset: AssetView }) {
     <article className="asset-card">
       <div className="asset-card-top">
         <span className="asset-art" aria-hidden="true">▱</span>
-        <span className="token-label">TOKEN #{asset.tokenId}</span>
+        <span className="token-label">
+          {tokenExplorerUrl(asset.tokenId)
+            ? <a href={tokenExplorerUrl(asset.tokenId) ?? undefined} target="_blank" rel="noreferrer">TOKEN #{asset.tokenId}</a>
+            : `TOKEN #${asset.tokenId}`}
+        </span>
       </div>
       <div className={`asset-lifecycle-badge lifecycle-${asset.lifecycleStatus.toLowerCase().replaceAll(' ', '-')}`}>
         {asset.lifecycleStatus}

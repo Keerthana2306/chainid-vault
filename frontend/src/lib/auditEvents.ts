@@ -1,5 +1,6 @@
 import { Contract, ZeroAddress, type EventFragment, type EventLog, type Result } from 'ethers'
 import { labelFor, roleName } from './contract'
+import { queryFilterInChunks } from './queryLogs'
 
 export interface QueriedAuditEvent {
   name: string
@@ -159,7 +160,7 @@ export async function queryAuditEvents(contract: Contract): Promise<QueriedAudit
   const groupedLogs = await Promise.all(
     eventFragments.map(async (fragment) => ({
       name: fragment.name,
-      logs: await contract.queryFilter(fragment.format('sighash'), 0),
+      logs: await queryFilterInChunks(contract, fragment.format('sighash')),
     })),
   )
   return groupedLogs.flatMap(({ name, logs }) =>

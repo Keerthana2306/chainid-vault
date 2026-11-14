@@ -3,6 +3,8 @@ import { Contract, JsonRpcProvider, type EventLog } from 'ethers'
 import { adjustToLocalClock } from '../lib/chainTime'
 import { contractAbi, contractAddress, labelFor } from '../lib/contract'
 import { cleanAssetDescription, hashFile, parseDocumentFingerprint } from '../lib/documentFingerprint'
+import { addressExplorerUrl, chainId, chainName, deployment, explorerUrl, isLocal, rpcUrl, tokenExplorerUrl, transactionExplorerUrl } from '../lib/network'
+import { queryFilterInChunks } from '../lib/queryLogs'
 
 interface CustodyEvent {
   name: 'AssetMinted' | 'AssetTransferred'
@@ -34,7 +36,9 @@ interface VerifyPageProps {
   initialTokenId: string
 }
 
-const NODE_ERROR = 'Cannot reach the blockchain node. Run npm run node and npm run deploy:local'
+const NODE_ERROR = isLocal
+  ? 'Cannot reach the local blockchain node. Run npm run node and npm run deploy:local.'
+  : 'Cannot reach the Sepolia RPC. Check VITE_RPC_URL and your network connection.'
 
 function shortAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
@@ -56,7 +60,7 @@ function isAddress(value: unknown): value is string {
 }
 
 export function VerifyPage({ initialTokenId }: VerifyPageProps) {
-  const provider = useMemo(() => new JsonRpcProvider('http://127.0.0.1:8545'), [])
+  const provider = useMemo(() => new JsonRpcProvider(rpcUrl, chainId), [])
   const contract = useMemo(() => new Contract(contractAddress, contractAbi, provider), [provider])
   const [tokenId, setTokenId] = useState(initialTokenId)
   const [record, setRecord] = useState<VerificationRecord | null>(null)
@@ -81,8 +85,13 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
     setRecord(null)
     try {
       await provider.getBlockNumber()
-    } catch {
-      setError(NODE_ERROR)
+      const network = await provider.getNetwork()
+      if (network.chainId !== BigInt(chainId)) {
+        throw new Error(`The read-only RPC is connected to the wrong network. Select ${chainName}.`)
+      }
+    } catch (rpcError) {
+      const message = rpcError instanceof Error ? rpcError.message : ''
+      setError(/wrong network/i.test(message) ? message : NODE_ERROR)
       setLoading(false)
       return
     }
@@ -106,11 +115,11 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
     try {
       const [asset, mintLogs, transferLogs, lifecycleStatus, expiry, revokedLogs, latestBlock] = await Promise.all([
         contract.getAsset(BigInt(requestedTokenId)),
-        contract.queryFilter(contract.filters.AssetMinted(BigInt(requestedTokenId)), 0),
-        contract.queryFilter(contract.filters.AssetTransferred(BigInt(requestedTokenId)), 0),
+        queryFilterInChunks(contract, contract.filters.AssetMinted(BigInt(requestedTokenId))),
+        queryFilterInChunks(contract, contract.filters.AssetTransferred(BigInt(requestedTokenId))),
         contract.assetStatus(BigInt(requestedTokenId)),
         contract.expiryOf(BigInt(requestedTokenId)),
-        contract.queryFilter(contract.filters.AssetRevoked(BigInt(requestedTokenId)), 0),
+        queryFilterInChunks(contract, contract.filters.AssetRevoked(BigInt(requestedTokenId))),
         provider.getBlock('latest'),
       ])
       if (!latestBlock) throw new Error('Could not load the latest block timestamp')
@@ -237,7 +246,7 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
           <h1>Document authenticity verification</h1>
           <p className="heading-subtitle">Check an asset record and compare a certificate locally, without connecting a wallet.</p>
         </div>
-        <div className="network-indicator"><span className="network-dot" />Hardhat Local</div>
+        <div className="network-indicator"><span className="network-dot is-online" />{chainName}</div>
       </section>
 
       <section className="verification-card" aria-labelledby="verification-heading">
@@ -330,7 +339,11 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
               <p>{record.description || 'No description provided.'}</p>
             </div>
             <dl className="record-details">
-              <div><dt>Token ID</dt><dd>#{record.tokenId}</dd></div>
+              <div><dt>Token ID</dt><dd>
+                {tokenExplorerUrl(record.tokenId)
+                  ? <a href={tokenExplorerUrl(record.tokenId) ?? undefined} target="_blank" rel="noreferrer">#{record.tokenId}</a>
+                  : `#${record.tokenId}`}
+              </dd></div>
               <div><dt>Issued by</dt><dd>{displayAddress(record.issuer)}</dd></div>
               <div><dt>Issued at (local time)</dt><dd>{formatTime(record.issuedAt)}</dd></div>
               <div><dt>Current owner</dt><dd>{displayAddress(record.owner)}</dd></div>
@@ -356,6 +369,15 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
                             : `Transferred from ${entry.from ? displayAddress(entry.from) : '—'} to ${displayAddress(entry.to)}`}
                         </strong>
                         <time>{formatTime(entry.timestamp)}</time>
+                        {transactionExplorerUrl(entry.transactionHash) && (
+                          <a
+                            href={transactionExplorerUrl(entry.transactionHash) ?? undefined}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            View transaction
+                          </a>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -369,7 +391,13 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
 
       <footer className="page-footer">
         <span>ChainID Vault</span>
-        <span>Public, read-only verification · No wallet required</span>
+        <span>
+          {chainName} · Public, read-only verification · Contract{' '}
+          {addressExplorerUrl(contractAddress)
+            ? <a href={addressExplorerUrl(contractAddress) ?? undefined} target="_blank" rel="noreferrer">{contractAddress}</a>
+            : contractAddress}
+          {explorerUrl && <> · <a href={`${explorerUrl}/token/${deployment.address}`} target="_blank" rel="noreferrer">View tokens</a></>}
+        </span>
       </footer>
     </main>
   )

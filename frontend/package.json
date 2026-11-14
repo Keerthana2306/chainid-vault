@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "sync-deployment": "node -e \"const fs=require('node:fs');fs.mkdirSync('src/contract',{recursive:true});fs.copyFileSync('../deployments/localhost.json','src/contract/deployment.json')\"",
+    "sync-deployment": "node scripts/sync-deployment.mjs",
     "predev": "npm run sync-deployment",
+    "prebuild": "node scripts/sync-deployment.mjs production",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",

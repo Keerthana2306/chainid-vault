@@ -3,6 +3,7 @@ import { ZeroAddress, type BrowserProvider, type Result } from 'ethers'
 import { asAddress, displayAddress, eventDetails, queryAuditEvents, roleLabel } from '../lib/auditEvents'
 import { getContract, roleName, type RoleName } from '../lib/contract'
 import { RoleBadge } from './DashboardCard'
+import { deployment, tokenExplorerUrl, transactionExplorerUrl } from '../lib/network'
 
 interface AuditTrailProps {
   provider: BrowserProvider
@@ -188,7 +189,7 @@ export function AuditTrail({ provider, refreshSignal }: AuditTrailProps) {
         <div>
           <p className="eyebrow">READ-ONLY · ON-CHAIN HISTORY</p>
           <h2>Audit Trail</h2>
-          <p>Events are read from block 0 and ordered by block and log position.</p>
+          <p>Events from deployment block {deployment.deployBlock} are ordered by block and log position.</p>
         </div>
         <div className="audit-refresh">
           {loadedAt && <span className="count-label">Updated {loadedAt}</span>}
@@ -346,12 +347,18 @@ export function AuditTrail({ provider, refreshSignal }: AuditTrailProps) {
                   </td>
                   <td>{displayAddress(entry.actor)}</td>
                   <td>{entry.tokenId
-                    ? `Token #${entry.tokenId}`
+                    ? tokenExplorerUrl(entry.tokenId)
+                      ? <a href={tokenExplorerUrl(entry.tokenId) ?? undefined} target="_blank" rel="noreferrer">Token #{entry.tokenId}</a>
+                      : `Token #${entry.tokenId}`
                     : ['RoleAssigned', 'RoleGranted', 'RoleRevoked'].includes(entry.name)
                       ? `${roleLabel(entry.args.role ?? entry.args[0])} · ${displayAddress(entry.subjectAddress ?? asAddress(entry.args[1]))}`
                       : displayAddress(entry.subjectAddress)}</td>
                   <td>{entry.details}</td>
-                  <td><code title={entry.transactionHash}>{shortHash(entry.transactionHash)}</code></td>
+                  <td>
+                    {transactionExplorerUrl(entry.transactionHash)
+                      ? <a href={transactionExplorerUrl(entry.transactionHash) ?? undefined} target="_blank" rel="noreferrer"><code title={entry.transactionHash}>{shortHash(entry.transactionHash)}</code></a>
+                      : <code title={entry.transactionHash}>{shortHash(entry.transactionHash)}</code>}
+                  </td>
                 </tr>
               ))}
               {!visibleEntries.length && (

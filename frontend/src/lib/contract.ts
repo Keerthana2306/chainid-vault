@@ -1,24 +1,11 @@
 import { Contract, ZeroHash, id, type ContractRunner } from 'ethers'
-import deployment from '../contract/deployment.json'
+import { deployment, isLocal } from './network'
 
-interface DeploymentAccount {
-  label: string
-  address: string
-}
+export { chainId } from './network'
 
-interface Deployment {
-  chainId: number
-  address: string
-  abi: ConstructorParameters<typeof Contract>[1]
-  accounts: DeploymentAccount[]
-}
-
-const deploymentConfig = deployment as Deployment
-
-export const contractAddress = deploymentConfig.address
-export const contractAbi = deploymentConfig.abi
-export const chainId = deploymentConfig.chainId
-export const accounts = deploymentConfig.accounts
+export const contractAddress = deployment.address
+export const contractAbi = deployment.abi
+export const accounts = deployment.accounts
 
 export const ADMIN = ZeroHash
 export const MANAGER = id('MANAGER')
@@ -63,6 +50,20 @@ function errorDetails(error: unknown): ErrorDetails {
 
 export function friendlyContractError(error: unknown, contract: Contract | null): string {
   const details = errorDetails(error)
+  const message = details.message ?? details.shortMessage ?? ''
+  const code = String(details.code ?? '')
+  if (code === 'INSUFFICIENT_FUNDS' || /insufficient funds|funds for gas/i.test(message)) {
+    return 'Not enough ETH to pay the transaction gas fee.'
+  }
+  if (/wrong network|chain.?id mismatch/i.test(message)) {
+    return `Switch MetaMask to ${isLocal ? 'Hardhat Local' : 'Sepolia'} and try again.`
+  }
+  if (
+    ['NETWORK_ERROR', 'SERVER_ERROR', 'TIMEOUT', 'ECONNREFUSED'].includes(code) ||
+    /failed to fetch|could not detect network|network request failed|timeout|connection refused|rpc error/i.test(message)
+  ) {
+    return 'Could not reach the blockchain RPC. Check your network connection and RPC URL, then retry.'
+  }
   if (details.code === 'ACTION_REJECTED' || details.code === 4001) {
     return 'Transaction cancelled'
   }
@@ -149,8 +150,8 @@ export function getContract(runner: ContractRunner): Contract {
 }
 
 export function labelFor(address: string): string {
-  const account = accounts.find(
+  const account = isLocal ? accounts.find(
     (entry) => entry.address.toLowerCase() === address.toLowerCase(),
-  )
+  ) : undefined
   return account?.label ?? `${address.slice(0, 6)}...${address.slice(-4)}`
 }

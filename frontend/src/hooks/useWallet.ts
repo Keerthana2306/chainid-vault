@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { BrowserProvider, type Eip1193Provider, type JsonRpcSigner } from 'ethers'
-import { chainId as deployedChainId, contractAddress, labelFor } from '../lib/contract'
+import { contractAddress, labelFor } from '../lib/contract'
+import { chainId as targetChainId, chainName, explorerUrl, rpcUrl } from '../lib/network'
 
 interface InjectedProvider extends Eip1193Provider {
   on(event: 'accountsChanged', listener: (accounts: string[]) => void): void
@@ -16,9 +17,19 @@ declare global {
 }
 
 function errorMessage(error: unknown): string {
-  const code = (error as { code?: number } | null)?.code
+  const details = error as { code?: number | string; message?: string } | null
+  const code = details?.code
   if (code === 4001) {
     return 'Connection request was rejected. Approve the request in your wallet to continue.'
+  }
+  if (code === 'INSUFFICIENT_FUNDS' || /insufficient funds|funds for gas/i.test(details?.message ?? '')) {
+    return 'Not enough ETH to pay the transaction gas fee.'
+  }
+  if (
+    ['NETWORK_ERROR', 'SERVER_ERROR', 'TIMEOUT', 'ECONNREFUSED'].includes(String(code)) ||
+    /failed to fetch|could not detect network|network request failed|timeout|connection refused/i.test(details?.message ?? '')
+  ) {
+    return 'Could not reach the blockchain RPC. Check your network connection and RPC URL, then retry.'
   }
   return error instanceof Error ? error.message : 'Could not connect to the wallet.'
 }
@@ -41,7 +52,7 @@ export function useWallet() {
   const connect = useCallback(async () => {
     const injected = window.ethereum
     if (!injected) {
-      setError('MetaMask is not installed. Install MetaMask to connect a demo account.')
+      setError('MetaMask is not installed. Install MetaMask to connect your wallet.')
       return
     }
 
@@ -77,7 +88,7 @@ export function useWallet() {
   const connectMoreAccounts = useCallback(async () => {
     const injected = window.ethereum
     if (!injected) {
-      setError('MetaMask is not installed. Install MetaMask to connect a demo account.')
+      setError('MetaMask is not installed. Install MetaMask to connect your wallet.')
       return
     }
 
@@ -116,7 +127,7 @@ export function useWallet() {
   const requestAccountFallback = useCallback(async (accountLabel: string) => {
     const injected = window.ethereum
     if (!injected) {
-      setError('MetaMask is not installed. Install MetaMask to connect a demo account.')
+      setError('MetaMask is not installed. Install MetaMask to connect your wallet.')
       return
     }
 
@@ -188,16 +199,16 @@ export function useWallet() {
   const switchNetwork = useCallback(async () => {
     const injected = window.ethereum
     if (!injected) {
-      setError('MetaMask is not installed. Install MetaMask to connect a demo account.')
+      setError('MetaMask is not installed. Install MetaMask to connect your wallet.')
       return
     }
 
-    const targetChainId = `0x${deployedChainId.toString(16)}`
+    const targetChainHex = `0x${targetChainId.toString(16)}`
     setError(null)
     try {
       await injected.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: targetChainId }],
+        params: [{ chainId: targetChainHex }],
       })
     } catch (switchError) {
       const code = (switchError as { code?: number } | null)?.code
@@ -210,15 +221,16 @@ export function useWallet() {
         await injected.request({
           method: 'wallet_addEthereumChain',
           params: [{
-            chainId: targetChainId,
-            chainName: 'Hardhat Local',
-            rpcUrls: ['http://127.0.0.1:8545'],
+            chainId: targetChainHex,
+            chainName,
+            rpcUrls: [rpcUrl],
             nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+            ...(explorerUrl ? { blockExplorerUrls: [explorerUrl] } : {}),
           }],
         })
         await injected.request({
           method: 'wallet_switchEthereumChain',
-          params: [{ chainId: targetChainId }],
+          params: [{ chainId: targetChainHex }],
         })
       } catch (addError) {
         setError(errorMessage(addError))
@@ -286,7 +298,7 @@ export function useWallet() {
   }, [activeAccount])
 
   useEffect(() => {
-    if (!provider || chainId !== BigInt(deployedChainId)) {
+    if (!provider || chainId !== BigInt(targetChainId)) {
       return
     }
 
@@ -308,7 +320,7 @@ export function useWallet() {
 
   const contractDeployed =
     provider &&
-    chainId === BigInt(deployedChainId) &&
+    chainId === BigInt(targetChainId) &&
     deploymentCheck?.provider === provider &&
     deploymentCheck.chainId === chainId
       ? deploymentCheck.deployed

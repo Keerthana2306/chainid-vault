@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { BrowserProvider } from 'ethers'
 import { verifyMessage } from 'ethers'
-import { accounts, didFor, getContract, labelFor, roleName, type RoleName } from './lib/contract'
+import { accounts, didFor, friendlyContractError, getContract, labelFor, roleName, type RoleName } from './lib/contract'
 import { adjustToLocalClock } from './lib/chainTime'
+import { addressExplorerUrl, chainId, chainName, deployment, isLocal } from './lib/network'
 import { useWallet } from './hooks/useWallet'
 import { AssetCard, DashboardCard, RoleBadge } from './components/DashboardCard'
 import { RegistryActions } from './components/RegistryActions'
@@ -111,7 +112,7 @@ function WalletApp() {
           error: null,
         }] as const
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Could not read account roles.'
+        const message = friendlyContractError(error, contract)
         return [address.toLowerCase(), {
           registered: false,
           roles: [],
@@ -211,12 +212,12 @@ function WalletApp() {
         setDashboard(data)
         setReadError(null)
       }
-    }).catch(() => {
+    }).catch((error: unknown) => {
       if (active && wallet.account && wallet.provider) {
         setReadError({
           account: wallet.account,
           provider: wallet.provider,
-          message: 'Could not read registry data. Check the selected network and deployment.',
+          message: friendlyContractError(error, getContract(wallet.provider)),
         })
       }
     })
@@ -233,12 +234,12 @@ function WalletApp() {
         setDashboard(data)
         setReadError(null)
       }
-    } catch {
+    } catch (error: unknown) {
       if (wallet.account && wallet.provider) {
         setReadError({
           account: wallet.account,
           provider: wallet.provider,
-          message: 'Could not read registry data. Check the selected network and deployment.',
+          message: friendlyContractError(error, getContract(wallet.provider)),
         })
       }
     } finally {
@@ -357,17 +358,17 @@ function WalletApp() {
       {wallet.account && (
         <section className="acting-bar" aria-label="Choose active account">
           <div className="acting-title">
-            <strong>Acting as</strong>
-            <span>Choose an account permitted for this site</span>
+            <strong>{isLocal ? 'Acting as' : 'MetaMask accounts'}</strong>
+            <span>{isLocal ? 'Choose an account permitted for this site' : 'Only accounts permitted for this site are shown'}</span>
           </div>
           <div className="acting-account-list">
             {wallet.permittedAccounts.map((address) => {
-              const demoAccount = accounts.find(
+              const demoAccount = isLocal && accounts.find(
                 (entry) => entry.address.toLowerCase() === address.toLowerCase(),
               )
               const accountState = permittedAccountRoles[address.toLowerCase()]
               const active = wallet.account?.toLowerCase() === address.toLowerCase()
-              const accountLabel = demoAccount?.label ?? `Account ${address.slice(0, 6)}`
+              const accountLabel = demoAccount ? demoAccount.label : `Account ${address.slice(0, 6)}`
               return (
                 <button
                   aria-pressed={active}
@@ -413,15 +414,21 @@ function WalletApp() {
 
       <section className="page-heading">
         <div>
-          <p className="eyebrow">LOCAL BLOCKCHAIN · HARDHAT</p>
+          <p className="eyebrow">{isLocal ? 'LOCAL BLOCKCHAIN · HARDHAT' : 'SEPOLIA TEST NETWORK'}</p>
           <h1>Your registry overview</h1>
           <p className="heading-subtitle">
             Verify your decentralized identity, access roles, and registered assets.
           </p>
         </div>
         <div className="network-indicator">
-          <span className={`network-dot ${wallet.chainId === 31337n ? 'is-online' : ''}`} />
-          <span>{wallet.chainId === 31337n ? 'Hardhat Local' : 'Local network'}</span>
+          <span className={`network-dot ${wallet.chainId === BigInt(chainId) ? 'is-online' : ''}`} />
+          <span>
+            {wallet.chainId === null
+              ? chainName
+              : wallet.chainId === BigInt(chainId)
+                ? chainName
+                : `Wrong network · ${chainName} expected`}
+          </span>
         </div>
       </section>
 
@@ -438,18 +445,18 @@ function WalletApp() {
           )}
         </div>
       )}
-      {wallet.account && wallet.chainId !== null && wallet.chainId !== 31337n && (
+      {wallet.account && wallet.chainId !== null && wallet.chainId !== BigInt(chainId) && (
         <div className="notice notice-warning" role="status">
-          <span>Connect to the Hardhat Local network to view registry data.</span>
+          <span>Connect to {chainName} to view registry data.</span>
           <button className="button button-small" onClick={() => void wallet.switchNetwork()}>
-            Switch network
+            Switch to {chainName}
           </button>
         </div>
       )}
       {wallet.contractDeployed === false && (
         <div className="notice notice-warning" role="alert">
           <span>
-            Contract not found at the saved address. Run npm run node and npm run deploy:local,
+            Contract not found at the saved address on {chainName}. {isLocal ? 'Run npm run node and npm run deploy:local' : 'Check the Sepolia deployment address'},
             then refresh.
           </span>
         </div>
@@ -465,7 +472,9 @@ function WalletApp() {
           <div className="welcome-icon" aria-hidden="true">⌁</div>
           <div>
             <h2>Connect your wallet</h2>
-            <p>Connect one of the five local demo accounts to view its identity and assets.</p>
+            <p>{isLocal
+              ? 'Connect one of the five local demo accounts to view its identity and assets.'
+              : 'Connect a MetaMask account permitted for this site to view its identity and assets.'}</p>
           </div>
           <button className="button button-primary" onClick={() => void wallet.connect()}>
             Connect wallet
@@ -574,7 +583,7 @@ function WalletApp() {
               <div className="assets-empty">
                 <span className="empty-symbol">▱</span>
                 <strong>Registry data unavailable</strong>
-                <span>Connect to the deployed Hardhat Local registry to view assets.</span>
+                <span>Connect to the deployed {chainName} registry to view assets.</span>
               </div>
             ) : assets.length ? (
               <div className="asset-grid">
@@ -608,7 +617,12 @@ function WalletApp() {
 
       <footer className="page-footer">
         <span>ChainID Vault</span>
-        <span>Connected to a local Hardhat blockchain</span>
+        <span>
+          {chainName} · Contract{' '}
+          {addressExplorerUrl(deployment.address)
+            ? <a href={addressExplorerUrl(deployment.address) ?? undefined} target="_blank" rel="noreferrer">{deployment.address}</a>
+            : deployment.address}
+        </span>
       </footer>
     </main>
   )
