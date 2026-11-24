@@ -6,6 +6,7 @@ import { adjustToLocalClock } from './lib/chainTime'
 import { addressExplorerUrl, chainId, chainName, deployment, isLocal } from './lib/network'
 import { useWallet } from './hooks/useWallet'
 import { AssetCard, DashboardCard, RoleBadge } from './components/DashboardCard'
+import { AssetDetailPage } from './components/AssetDetailPage'
 import { RegistryActions } from './components/RegistryActions'
 import { VerifyPage } from './components/VerifyPage'
 import './App.css'
@@ -51,7 +52,7 @@ function formatTimestamp(value: bigint | number): string | null {
   }).format(new Date(milliseconds))
 }
 
-function WalletApp() {
+function WalletApp({ initialAssetTokenId }: { initialAssetTokenId: string | null }) {
   const wallet = useWallet()
   const [dashboard, setDashboard] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -301,6 +302,19 @@ function WalletApp() {
   const registeredStatus = identity
     ? identity.active ? 'Active' : 'Revoked'
     : dashboardIsCurrent ? 'Not registered' : currentReadError ? 'Unavailable' : 'Loading'
+
+  if (initialAssetTokenId !== null) {
+    return (
+      <AssetDetailPage
+        account={wallet.account}
+        connectWallet={wallet.connect}
+        signer={wallet.signer}
+        switchNetwork={wallet.switchNetwork}
+        tokenId={initialAssetTokenId}
+        walletChainId={wallet.chainId}
+      />
+    )
+  }
 
   return (
     <main className="app-shell">
@@ -638,6 +652,16 @@ function verificationTokenFromHash(hash: string): string {
   }
 }
 
+function assetTokenFromHash(hash: string): string | null {
+  if (hash !== '#/asset' && !hash.startsWith('#/asset/')) return null
+  const tokenPath = hash.slice('#/asset'.length).replace(/^\/+/, '').split(/[/?]/, 1)[0] ?? ''
+  try {
+    return decodeURIComponent(tokenPath)
+  } catch {
+    return tokenPath
+  }
+}
+
 function App() {
   const [hash, setHash] = useState(() => window.location.hash)
 
@@ -651,7 +675,7 @@ function App() {
     const initialTokenId = verificationTokenFromHash(hash)
     return <VerifyPage key={initialTokenId} initialTokenId={initialTokenId} />
   }
-  return <WalletApp />
+  return <WalletApp initialAssetTokenId={assetTokenFromHash(hash)} />
 }
 
 export default App

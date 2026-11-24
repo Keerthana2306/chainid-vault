@@ -2615,3 +2615,63 @@ h1 {
     white-space: nowrap;
   }
 }
+
+.asset-document-panel {
+  margin-top: 16px;
+}
+
+.asset-document-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.asset-document-form,
+.asset-download-panel {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fbfcfe;
+}
+
+.asset-document-form h3,
+.asset-download-panel h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.asset-document-form textarea {
+  min-height: 100px;
+}
+
+.asset-download-panel > p,
+.asset-access-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.asset-download-panel > .button {
+  width: fit-content;
+}
+
+.asset-document-form .verification-result,
+.asset-download-panel .verification-result {
+  margin-top: 0;
+  padding: 13px;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .asset-document-controls {
+    grid-template-columns: 1fr;
+  }
+}

@@ -42,7 +42,11 @@ export default async function handler(
       throw new ApiError(500, 'Could not create a signed download URL.')
     }
 
-    res.status(200).json({ signedUrl: file.signedUrl, sha256: metadata.sha256 })
+    res.status(200).json({
+      signedUrl: file.signedUrl,
+      filename,
+      sha256: metadata.sha256,
+    })
   } catch (error) {
     if (error instanceof ApiError && error.status === 405) {
       sendMethodNotAllowed(res, 'POST')

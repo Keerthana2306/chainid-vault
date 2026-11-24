@@ -352,6 +352,9 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
                 <div className="record-fingerprint"><dt>Document fingerprint</dt><dd><code>{record.fingerprint}</code></dd></div>
               )}
             </dl>
+            <a className="button button-small button-quiet" href={`#/asset/${record.tokenId}`}>
+              Open asset details
+            </a>
             <section className="verification-timeline">
               <div className="audit-subheading">
                 <div><p className="eyebrow">CUSTODY HISTORY</p><h3>Asset timeline</h3></div>

@@ -93,6 +93,7 @@ export function AssetCard({ asset }: { asset: AssetView }) {
         Issued (local time) {asset.createdAt ?? 'date unavailable'}
       </div>
       <div className="asset-verification-actions">
+        <a className="asset-verification-link" href={`#/asset/${asset.tokenId}`}>Asset details</a>
         <button className="button button-small button-quiet" onClick={() => void copyVerifyLink()} type="button">
           Copy verify link
         </button>
