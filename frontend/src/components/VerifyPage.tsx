@@ -40,6 +40,87 @@ const NODE_ERROR = isLocal
   ? 'Cannot reach the local blockchain node. Run npm run node and npm run deploy:local.'
   : 'Cannot reach the Sepolia RPC. Check VITE_RPC_URL and your network connection.'
 
+interface ProviderErrorDetails {
+  info?: { error?: { message?: unknown } }
+  error?: { message?: unknown }
+  shortMessage?: unknown
+  message?: unknown
+  code?: unknown
+  data?: unknown
+}
+
+class ProviderCallError extends Error {
+  readonly method: string
+  readonly originalError: unknown
+
+  constructor(
+    method: string,
+    originalError: unknown,
+  ) {
+    super(providerErrorMessage(originalError))
+    this.method = method
+    this.originalError = originalError
+  }
+}
+
+function errorDetails(error: unknown): ProviderErrorDetails {
+  if (error instanceof ProviderCallError) {
+    return errorDetails(error.originalError)
+  }
+  return typeof error === 'object' && error !== null ? error as ProviderErrorDetails : {}
+}
+
+function diagnosticString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  return value.replace(/https?:\/\/[^\s"'<>]+/gi, '[redacted URL]')
+}
+
+function diagnosticValue(value: unknown): string | number | undefined {
+  if (typeof value === 'string') return diagnosticString(value)
+  return typeof value === 'number' ? value : undefined
+}
+
+function providerErrorMessage(error: unknown): string {
+  const details = errorDetails(error)
+  const infoMessage = diagnosticString(details.info?.error?.message)
+  const nestedMessage = diagnosticString(details.error?.message)
+  const shortMessage = diagnosticString(details.shortMessage)
+  const message = diagnosticString(details.message)
+  const code = diagnosticValue(details.code)
+  const data = diagnosticValue(details.data)
+  return (
+    infoMessage ??
+    nestedMessage ??
+    shortMessage ??
+    message ??
+    (code !== undefined
+      ? `RPC error ${code}${data === undefined ? '' : ` (${data})`}`
+      : 'The RPC request failed.')
+  )
+}
+
+function logProviderFailure(method: string, error: unknown): void {
+  const actualMethod = error instanceof ProviderCallError ? error.method : method
+  const details = errorDetails(error)
+  console.error('Verify page provider call failed', {
+    method: actualMethod,
+    infoMessage: diagnosticString(details.info?.error?.message),
+    errorMessage: diagnosticString(details.error?.message),
+    shortMessage: diagnosticString(details.shortMessage),
+    code: diagnosticValue(details.code),
+    data: diagnosticValue(details.data),
+  })
+}
+
+async function providerCall<T>(method: string, call: () => Promise<T>): Promise<T> {
+  try {
+    return await call()
+  } catch (error) {
+    if (error instanceof ProviderCallError) throw error
+    throw new ProviderCallError(method, error)
+  }
+}
+
 function shortAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
@@ -84,29 +165,36 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
     setError(null)
     setRecord(null)
     try {
-      await provider.getBlockNumber()
-      const network = await provider.getNetwork()
+      await providerCall('eth_blockNumber', () => provider.getBlockNumber())
+      const network = await providerCall('eth_chainId', () => provider.getNetwork())
       if (network.chainId !== BigInt(chainId)) {
         throw new Error(`The read-only RPC is connected to the wrong network. Select ${chainName}.`)
       }
     } catch (rpcError) {
-      const message = rpcError instanceof Error ? rpcError.message : ''
-      setError(/wrong network/i.test(message) ? message : NODE_ERROR)
+      if (rpcError instanceof ProviderCallError) {
+        logProviderFailure('network check', rpcError)
+        setError(`Could not check the blockchain network (${rpcError.method}): ${rpcError.message}`)
+      } else {
+        const message = rpcError instanceof Error ? rpcError.message : ''
+        setError(/wrong network/i.test(message) ? message : NODE_ERROR)
+      }
       setLoading(false)
       return
     }
 
     let currentOwner: string
     try {
-      currentOwner = await contract.ownerOf(BigInt(requestedTokenId))
+      currentOwner = await providerCall(
+        'ownerOf(tokenId)',
+        () => contract.ownerOf(BigInt(requestedTokenId)),
+      )
     } catch (ownerError) {
-      const details = typeof ownerError === 'object' && ownerError !== null
-        ? ownerError as { code?: string; shortMessage?: string }
-        : {}
+      logProviderFailure('ownerOf(tokenId)', ownerError)
+      const details = errorDetails(ownerError)
       if (details.code === 'CALL_EXCEPTION') {
         setError('No such asset')
       } else {
-        setError(NODE_ERROR)
+        setError(`Could not check token ownership (ownerOf): ${providerErrorMessage(ownerError)}`)
       }
       setLoading(false)
       return
@@ -114,13 +202,46 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
 
     try {
       const [asset, mintLogs, transferLogs, lifecycleStatus, expiry, revokedLogs, latestBlock] = await Promise.all([
-        contract.getAsset(BigInt(requestedTokenId)),
-        queryFilterInChunks(contract, contract.filters.AssetMinted(BigInt(requestedTokenId))),
-        queryFilterInChunks(contract, contract.filters.AssetTransferred(BigInt(requestedTokenId))),
-        contract.assetStatus(BigInt(requestedTokenId)),
-        contract.expiryOf(BigInt(requestedTokenId)),
-        queryFilterInChunks(contract, contract.filters.AssetRevoked(BigInt(requestedTokenId))),
-        provider.getBlock('latest'),
+        providerCall('getAsset(tokenId)', () => contract.getAsset(BigInt(requestedTokenId))),
+        providerCall(
+          'AssetMinted(tokenId) query',
+          () => queryFilterInChunks(
+            contract,
+            contract.filters.AssetMinted(BigInt(requestedTokenId)),
+            undefined,
+            (method, error) => new ProviderCallError(
+              `${method} AssetMinted(tokenId) (chunks from deployment block)`,
+              error,
+            ),
+          ),
+        ),
+        providerCall(
+          'AssetTransferred(tokenId) query',
+          () => queryFilterInChunks(
+            contract,
+            contract.filters.AssetTransferred(BigInt(requestedTokenId)),
+            undefined,
+            (method, error) => new ProviderCallError(
+              `${method} AssetTransferred(tokenId) (chunks from deployment block)`,
+              error,
+            ),
+          ),
+        ),
+        providerCall('assetStatus(tokenId)', () => contract.assetStatus(BigInt(requestedTokenId))),
+        providerCall('expiryOf(tokenId)', () => contract.expiryOf(BigInt(requestedTokenId))),
+        providerCall(
+          'AssetRevoked(tokenId) query',
+          () => queryFilterInChunks(
+            contract,
+            contract.filters.AssetRevoked(BigInt(requestedTokenId)),
+            undefined,
+            (method, error) => new ProviderCallError(
+              `${method} AssetRevoked(tokenId) (chunks from deployment block)`,
+              error,
+            ),
+          ),
+        ),
+        providerCall('eth_getBlockByNumber(latest)', () => provider.getBlock('latest')),
       ])
       if (!latestBlock) throw new Error('Could not load the latest block timestamp')
       const localNow = Date.now()
@@ -134,7 +255,10 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
         .filter((log): log is EventLog => 'args' in log)
         .sort((left, right) => left.blockNumber - right.blockNumber || left.index - right.index)
       const timeline = await Promise.all(custodyLogs.map(async (log): Promise<CustodyEvent> => {
-        const block = await provider.getBlock(log.blockNumber)
+        const block = await providerCall(
+          `eth_getBlockByNumber(${log.blockNumber})`,
+          () => provider.getBlock(log.blockNumber),
+        )
         if (!block) throw new Error(`Could not load block ${log.blockNumber}`)
         const isMint = log.fragment.name === 'AssetMinted'
         const actor = log.args.actor
@@ -157,9 +281,15 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
 
       const issuer = mintLog.args.actor
       if (!isAddress(issuer)) throw new Error('The issuance event does not contain a valid issuer address')
-      const mintBlock = await provider.getBlock(mintLog.blockNumber)
+      const mintBlock = await providerCall(
+        `eth_getBlockByNumber(${mintLog.blockNumber})`,
+        () => provider.getBlock(mintLog.blockNumber),
+      )
       if (!mintBlock) throw new Error(`Could not load block ${mintLog.blockNumber}`)
-      const ownerIdentity = await contract.getIdentity(currentOwner)
+      const ownerIdentity = await providerCall(
+        'getIdentity(owner)',
+        () => contract.getIdentity(currentOwner),
+      )
       const expiryTimestamp = Number(expiry)
       const status = Number(lifecycleStatus)
       const currentLifecycleStatus = status === 2
@@ -188,10 +318,12 @@ export function VerifyPage({ initialTokenId }: VerifyPageProps) {
         timeline,
       })
     } catch (loadError) {
-      const details = typeof loadError === 'object' && loadError !== null
-        ? loadError as { shortMessage?: string; message?: string }
-        : {}
-      setError(details.shortMessage ?? details.message ?? 'Could not load the verification record.')
+      if (loadError instanceof ProviderCallError) {
+        logProviderFailure('verification record loading', loadError)
+        setError(`Could not load verification data (${loadError.method}): ${loadError.message}`)
+      } else {
+        setError(loadError instanceof Error ? loadError.message : 'Could not load the verification record.')
+      }
     } finally {
       setLoading(false)
     }

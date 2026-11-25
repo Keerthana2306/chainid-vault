@@ -14,13 +14,19 @@ export async function queryFilterInChunks(
   contract: Contract,
   filter: EventFilter,
   fromBlock = deployment.deployBlock,
+  wrapProviderError?: (method: string, error: unknown) => Error,
 ): Promise<(EventLog | Log)[]> {
   const provider = contract.runner?.provider
   if (!provider) {
     throw new Error('A provider is required to query contract events.')
   }
 
-  const latestBlock = await provider.getBlockNumber()
+  let latestBlock: number
+  try {
+    latestBlock = await provider.getBlockNumber()
+  } catch (error) {
+    throw wrapProviderError?.('eth_blockNumber (event query)', error) ?? error
+  }
   const logs: (EventLog | Log)[] = []
 
   for (let start = fromBlock; start <= latestBlock; start += LOG_CHUNK_SIZE) {
@@ -42,7 +48,8 @@ export async function queryFilterInChunks(
     }
 
     if (!succeeded) {
-      throw lastError ?? new Error(`Could not query contract logs for blocks ${start}-${end}.`)
+      const error = lastError ?? new Error(`Could not query contract logs for blocks ${start}-${end}.`)
+      throw wrapProviderError?.(`eth_getLogs (blocks ${start}-${end})`, error) ?? error
     }
   }
 
