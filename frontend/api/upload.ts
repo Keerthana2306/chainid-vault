@@ -35,7 +35,14 @@ export default async function handler(
       .from('documents')
       .createSignedUploadUrl(path)
 
-    if (uploadError || !upload) {
+    if (uploadError) {
+      console.error('signed upload URL failed', {
+        code: uploadError.code,
+        message: uploadError.message,
+      })
+      throw new ApiError(500, 'Could not create a signed upload URL.')
+    }
+    if (!upload) {
       throw new ApiError(500, 'Could not create a signed upload URL.')
     }
 
@@ -53,6 +60,10 @@ export default async function handler(
     )
 
     if (metadataError) {
+      console.error('upsert failed', {
+        code: metadataError.code,
+        message: metadataError.message,
+      })
       throw new ApiError(500, 'Could not save asset metadata.')
     }
 
